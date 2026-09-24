@@ -101,4 +101,21 @@
 - **What Was Implemented:** Fully implemented the Phase 4 Survivor AI architecture: 7-variable needs simulation, 24-hour schedule loops, 3-tier distance fidelity optimization (Near/Medium/Far), and rendered 3D survivor characters (Mira and Elias) with interactive dialogue prompts in the WebGL scene.
 - **What Was Tested:** Next.js build compilation verified (`0 errors`); git commit and push completed (`3bcbc73`).
 - **Result:** Phase 4 Survivor AI systems completed and pushed to `origin/main`.
-- **Next Step:** Phase 5 — Strategic Resource Economy (Food, Water, Medicine, Scrap, Knowledge, Trust).
+- **Next Step:** Implement Phase 5 Strategic Resource Economy (Food, Water, Medicine, Scrap, Fuel, Knowledge, Trust).
+
+---
+
+## Entry 006 — 2026-09-24
+
+- **Phase:** Phase 5 — Strategic & Physical Resource Economy
+- **Task:** Resource Economy Systems (ResourceDefinition, EconomyEngine, ResourceManager, DashboardHUD Resource Meters)
+- **Files Changed:**
+  - Created [`game/Unity/Assets/Scripts/Resources/ResourceDefinition.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/Resources/ResourceDefinition.cs) (Physical: Food, Water, Medicine, Scrap, Fuel & Strategic: Knowledge, Trust, Population)
+  - Created [`game/Unity/Assets/Scripts/Resources/EconomyEngine.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/Resources/EconomyEngine.cs) (Deterministic hourly resource calculation engine)
+  - Created [`game/Unity/Assets/Scripts/Resources/ResourceManager.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/Resources/ResourceManager.cs) (Master resource bank ledger with event notifications)
+  - Updated [`web/src/components/DashboardHUD.tsx`](file:///d:/Last%20city/web/src/components/DashboardHUD.tsx) (Real-time physical and strategic resource meters bar)
+- **Systems Changed:** Resource Bank Ledger, Deterministic Economy Engine, Web Shell HUD.
+- **What Was Implemented:** Fully created the Phase 5 resource economy engine: deterministic calculation engine (`EconomyEngine.CalculateHourlyTick`), master resource bank ledger with event hooks (`ResourceManager`), and real-time physical/strategic resource status HUD meters in the web shell.
+- **What Was Tested:** Next.js build compilation verified (`0 errors`); git commit and push completed (`e38df6f`).
+- **Result:** Phase 5 Strategic Resource Economy completed and pushed to `origin/main`.
+- **Next Step:** Phase 6 — Construction & Settlement Expansion (Blueprint Placement, Resource Reservation, Staged 3D Building Progress).

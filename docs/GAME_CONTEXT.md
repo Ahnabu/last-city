@@ -4,8 +4,8 @@ PROJECT: LAST CITY
 GAME GENRE: 3D Survival Strategy / Narrative RPG / City Builder
 CORE FANTASY: Build a city. Shape its people. Decide what humanity becomes.
 
-CURRENT DEVELOPMENT PHASE: Phase 4 — Survivors & Multi-Tiered NPC Simulation
-CURRENT VERSION: 0.4.0
+CURRENT DEVELOPMENT PHASE: Phase 5 — Strategic & Physical Resource Economy
+CURRENT VERSION: 0.5.0
 
 CURRENT WORKING FEATURES:
 - Master Build Prompt v2.0 & Story Canon ingested into `/docs`.
@@ -31,6 +31,9 @@ CURRENT WORKING FEATURES:
   - `NPCSchedule.cs` (Daily schedule loop: Wake, Eat, Work, Rest, Sleep)
   - `NPCController.cs` (Distance simulation tiers: Near, Medium, Far + dialogue interaction)
   - `NPCManager.cs` (Master population registry & Far-tier statistical math update loop)
+  - `ResourceDefinition.cs` (Physical: Food, Water, Medicine, Scrap, Fuel & Strategic: Knowledge, Trust)
+  - `EconomyEngine.cs` (Deterministic hourly resource calculation engine)
+  - `ResourceManager.cs` (Master resource bank ledger with event notifications)
 
 CURRENT BROKEN FEATURES:
 - None (Scaffolding stage).
