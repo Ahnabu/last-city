@@ -64,4 +64,22 @@
 - **What Was Implemented:** Implemented data-driven interactive container searching, key-gated access, environmental evidence pickup with automated journal logging, and substation-to-building power link components.
 - **What Was Tested:** Next.js build compilation verified (`0 errors`); git remote updated.
 - **Result:** Phase 2 interaction systems completed and pushed to `origin/main`.
-- **Next Step:** Phase 3 — Base One Interior layout and functional interactables (Water Pump, Generator, Workbench).
+- **Next Step:** Implement Phase 3 Base One interior and infrastructure systems.
+
+---
+
+## Entry 004 — 2026-09-24
+
+- **Phase:** Phase 3 — Base One Interior & Infrastructure
+- **Task:** Base One Systems (Generator Repair, Water Pump, Workbench, Emergency Radio, BaseOneManager)
+- **Files Changed:**
+  - Created [`game/Unity/Assets/Scripts/BaseOne/BaseOneManager.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/BaseOne/BaseOneManager.cs) (Base One singleton manager: power, water, bunk allocations)
+  - Created [`game/Unity/Assets/Scripts/BaseOne/GeneratorInteractable.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/BaseOne/GeneratorInteractable.cs) (Damaged generator repair → Base One power activation)
+  - Created [`game/Unity/Assets/Scripts/BaseOne/WaterPumpInteractable.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/BaseOne/WaterPumpInteractable.cs) (Purified water ration collection)
+  - Created [`game/Unity/Assets/Scripts/BaseOne/WorkbenchInteractable.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/BaseOne/WorkbenchInteractable.cs) (Item crafting & equipment repair station)
+  - Created [`game/Unity/Assets/Scripts/BaseOne/RadioInteractable.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/BaseOne/RadioInteractable.cs) (Emergency radio & Node 17 Continuity signal broadcast trigger)
+- **Systems Changed:** Home Base Infrastructure, Power System, Crafting, Narrative Broadcast Triggers.
+- **What Was Implemented:** Fully created the C# component baseline for Base One home base interior: generator repair workflow, water pump rationing, workbench item crafting, emergency radio Node 17 broadcast anchor, and `BaseOneManager` infrastructure state tracker.
+- **What Was Tested:** Next.js build compilation verified (`0 errors`); git commit and push completed.
+- **Result:** Phase 3 Base One infrastructure completed and pushed to `origin/main`.
+- **Next Step:** Phase 4 — Survivors (Multi-Tiered NPC Simulation, Needs, Professions, Schedules).

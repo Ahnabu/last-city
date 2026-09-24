@@ -4,8 +4,8 @@ PROJECT: LAST CITY
 GAME GENRE: 3D Survival Strategy / Narrative RPG / City Builder
 CORE FANTASY: Build a city. Shape its people. Decide what humanity becomes.
 
-CURRENT DEVELOPMENT PHASE: Phase 2 — Data-Driven Interaction & Evidence System
-CURRENT VERSION: 0.2.0
+CURRENT DEVELOPMENT PHASE: Phase 3 — Base One Interior & Infrastructure
+CURRENT VERSION: 0.3.0
 
 CURRENT WORKING FEATURES:
 - Master Build Prompt v2.0 & Story Canon ingested into `/docs`.
@@ -22,6 +22,11 @@ CURRENT WORKING FEATURES:
   - `EvidenceInteractable.cs` (Environmental evidence pickup → Journal log)
   - `InventoryManager.cs` (Item storage slots & Evidence Journal storage)
   - `PowerLink.cs` (Substation power restoration linked to target building IDs)
+  - `BaseOneManager.cs` (Base One infrastructure manager: power, water, bunk allocations)
+  - `GeneratorInteractable.cs` (Damaged generator repair → Base One power activation)
+  - `WaterPumpInteractable.cs` (Purified water ration collection)
+  - `WorkbenchInteractable.cs` (Item crafting & repair station)
+  - `RadioInteractable.cs` (Emergency radio & Node 17 Continuity signal broadcast trigger)
 
 CURRENT BROKEN FEATURES:
 - None (Scaffolding stage).
