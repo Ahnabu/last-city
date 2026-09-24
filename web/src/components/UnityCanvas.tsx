@@ -18,7 +18,11 @@ export default function UnityCanvas({
   const [playerCoords, setPlayerCoords] = useState({ x: 0, z: 12 });
   const [insideLocation, setInsideLocation] = useState<string | null>(null);
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(null);
-  const [activeInteractableId, setActiveInteractableId] = useState<string | null>(null);
+
+  // Persistent Player 3D Position Ref (Prevents position resets on state changes!)
+  const playerPosRef = useRef({ x: 0, z: 12, angle: 0 });
+  const isCrouchingRef = useRef(false);
+  isCrouchingRef.current = isCrouching;
 
   // Game World & Infrastructure State
   const [worldState, setWorldState] = useState({
@@ -31,11 +35,19 @@ export default function UnityCanvas({
     waterCount: 0,
   });
 
+  const worldStateRef = useRef(worldState);
+  worldStateRef.current = worldState;
+
   const [inventory, setInventory] = useState<Array<{ id: string; name: string; count: number }>>([
     { id: "item_scrap_metal", name: "Scrap Metal", count: 3 },
   ]);
+  const inventoryRef = useRef(inventory);
+  inventoryRef.current = inventory;
 
   const [journal, setJournal] = useState<Array<{ id: string; title: string; content: string; location: string }>>([]);
+  const journalRef = useRef(journal);
+  journalRef.current = journal;
+
   const [showJournal, setShowJournal] = useState(false);
   const [actionLog, setActionLog] = useState<string[]>([
     "Coordinator awake at Base One exterior.",
@@ -44,7 +56,11 @@ export default function UnityCanvas({
 
   const keysPressed = useRef<{ [key: string]: boolean }>({});
 
-  // 3D Three.js Engine Setup & Render Loop
+  const logAction = (msg: string) => {
+    setActionLog((prev) => [msg, ...prev.slice(0, 4)]);
+  };
+
+  // 3D Three.js Engine Setup & Render Loop (Runs ONCE on Mount!)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -65,7 +81,7 @@ export default function UnityCanvas({
 
     container.appendChild(renderer.domElement);
 
-    // 2. 3D Lighting (Exterior & Interior Point Lights)
+    // 2. Lighting Setup
     const ambientLight = new THREE.AmbientLight(0x38bdf8, 0.45);
     scene.add(ambientLight);
 
@@ -76,7 +92,7 @@ export default function UnityCanvas({
     sunLight.shadow.mapSize.height = 2048;
     scene.add(sunLight);
 
-    // Base One Interior Room Point Lights
+    // Interior Point Lights
     const baseOneIntLight = new THREE.PointLight(0x10b981, 0, 15);
     baseOneIntLight.position.set(-12, 3, -12);
     scene.add(baseOneIntLight);
@@ -85,17 +101,15 @@ export default function UnityCanvas({
     baseOneRadioLight.position.set(-6, 2.5, -16);
     scene.add(baseOneRadioLight);
 
-    // Pharmacy Interior Light
     const pharmIntLight = new THREE.PointLight(0xfef08a, 0.8, 12);
     pharmIntLight.position.set(15, 2.8, -12);
     scene.add(pharmIntLight);
 
-    // Substation Control Room Light
     const subIntLight = new THREE.PointLight(0xf59e0b, 1.0, 12);
     subIntLight.position.set(15, 2.8, 14);
     scene.add(subIntLight);
 
-    // 3. 3D Terrain & Roads
+    // 3. Terrain & Roads
     const groundGeo = new THREE.PlaneGeometry(140, 140);
     const groundMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -107,7 +121,6 @@ export default function UnityCanvas({
     gridHelper.position.y = 0.01;
     scene.add(gridHelper);
 
-    // Main Road (10m wide)
     const roadGeo = new THREE.PlaneGeometry(140, 10);
     const roadMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
     const road = new THREE.Mesh(roadGeo, roadMat);
@@ -116,11 +129,10 @@ export default function UnityCanvas({
     road.receiveShadow = true;
     scene.add(road);
 
-    // --- 4. BUILDING 1: BASE ONE INTERIOR & STRUCTURE (18m × 14m × 4m) ---
+    // --- 4. BUILDING 1: BASE ONE (18m × 14m × 4m) ---
     const baseOneGroup = new THREE.Group();
     baseOneGroup.position.set(-12, 0, -12);
 
-    // Interior Floor (Wood/Concrete tiles)
     const b1FloorGeo = new THREE.PlaneGeometry(18, 14);
     const b1FloorMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4 });
     const b1Floor = new THREE.Mesh(b1FloorGeo, b1FloorMat);
@@ -129,9 +141,7 @@ export default function UnityCanvas({
     b1Floor.receiveShadow = true;
     baseOneGroup.add(b1Floor);
 
-    // Base One Outer & Interior Wall Layout
     const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 });
-
     const createWall = (w: number, h: number, d: number, px: number, py: number, pz: number) => {
       const geo = new THREE.BoxGeometry(w, h, d);
       const mesh = new THREE.Mesh(geo, wallMat);
@@ -141,18 +151,15 @@ export default function UnityCanvas({
       baseOneGroup.add(mesh);
     };
 
-    // Outer Walls (North, South, East, West with Doorway opening at South Z: 7)
-    createWall(18, 3.5, 0.4, 0, 1.75, -7); // North Back Wall
-    createWall(0.4, 3.5, 14, -9, 1.75, 0); // West Wall
-    createWall(0.4, 3.5, 14, 9, 1.75, 0); // East Wall
-    createWall(7, 3.5, 0.4, -5.5, 1.75, 7); // South Wall Left
-    createWall(7, 3.5, 0.4, 5.5, 1.75, 7); // South Wall Right
+    createWall(18, 3.5, 0.4, 0, 1.75, -7);
+    createWall(0.4, 3.5, 14, -9, 1.75, 0);
+    createWall(0.4, 3.5, 14, 9, 1.75, 0);
+    createWall(7, 3.5, 0.4, -5.5, 1.75, 7);
+    createWall(7, 3.5, 0.4, 5.5, 1.75, 7);
+    createWall(0.4, 3.5, 8, -2, 1.75, -3);
+    createWall(8, 3.5, 0.4, 4, 1.75, -1);
 
-    // Interior Room Dividers (Sleeping Quarters, Generator Room, Radio Room)
-    createWall(0.4, 3.5, 8, -2, 1.75, -3); // Divider 1
-    createWall(8, 3.5, 0.4, 4, 1.75, -1); // Divider 2
-
-    // Dynamic Semi-Transparent Roof Shell (Fades out when player enters)
+    // Dynamic Transparent Roof
     const b1RoofGeo = new THREE.BoxGeometry(18.4, 0.3, 14.4);
     const b1RoofMat = new THREE.MeshStandardMaterial({
       color: 0x059669,
@@ -164,7 +171,7 @@ export default function UnityCanvas({
     b1Roof.position.set(0, 3.65, 0);
     baseOneGroup.add(b1Roof);
 
-    // 3D Door Mesh (2.0m x 0.9m)
+    // 3D Door Mesh
     const doorGroup = new THREE.Group();
     doorGroup.position.set(-2, 0, 7);
     const doorGeo = new THREE.BoxGeometry(4, 3.0, 0.3);
@@ -175,7 +182,6 @@ export default function UnityCanvas({
     doorGroup.add(doorMesh);
     baseOneGroup.add(doorGroup);
 
-    // INTERIOR PROPS:
     // Generator Turbine Mesh
     const genGeo = new THREE.CylinderGeometry(1.2, 1.2, 2.2, 16);
     const genMat = new THREE.MeshStandardMaterial({ color: 0x059669, metalness: 0.8 });
@@ -190,14 +196,14 @@ export default function UnityCanvas({
     pumpMesh.position.set(-6, 1.1, 3);
     baseOneGroup.add(pumpMesh);
 
-    // Radio Room Console & Screen Mesh
+    // Radio Room Console Mesh
     const radioGeo = new THREE.BoxGeometry(2.5, 1.2, 1.5);
     const radioMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, emissive: 0x0369a1 });
     const radioMesh = new THREE.Mesh(radioGeo, radioMat);
     radioMesh.position.set(5, 0.6, -4);
     baseOneGroup.add(radioMesh);
 
-    // 3D Bunks Sleeping Quarters (6 bunks)
+    // Bunks
     for (let i = 0; i < 3; i++) {
       const bunkGeo = new THREE.BoxGeometry(1.8, 1.4, 3.2);
       const bunkMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
@@ -208,7 +214,7 @@ export default function UnityCanvas({
 
     scene.add(baseOneGroup);
 
-    // --- 5. BUILDING 2: PHARMACY INTERIOR & STRUCTURE (10m × 8m × 3.5m) ---
+    // --- 5. BUILDING 2: PHARMACY (10m × 8m × 3.5m) ---
     const pharmacyGroup = new THREE.Group();
     pharmacyGroup.position.set(18, 0, -12);
 
@@ -219,7 +225,6 @@ export default function UnityCanvas({
     pharmFloor.position.set(0, 0.03, 0);
     pharmacyGroup.add(pharmFloor);
 
-    // Pharmacy Roof (Fades on enter)
     const pharmRoofGeo = new THREE.BoxGeometry(10.4, 0.3, 8.4);
     const pharmRoofMat = new THREE.MeshStandardMaterial({
       color: 0x0284c7,
@@ -230,7 +235,6 @@ export default function UnityCanvas({
     pharmRoof.position.set(0, 3.65, 0);
     pharmacyGroup.add(pharmRoof);
 
-    // Pharmacy Interior Shelves & Storage Cache
     const cacheGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
     const cacheMat = new THREE.MeshStandardMaterial({ color: 0x0284c7 });
     const cacheMesh = new THREE.Mesh(cacheGeo, cacheMat);
@@ -274,9 +278,9 @@ export default function UnityCanvas({
 
     scene.add(subGroup);
 
-    // --- 7. 3D PLAYER (THE COORDINATOR - Height: 1.7m) ---
+    // --- 7. 3D PLAYER (THE COORDINATOR) ---
     const playerGroup = new THREE.Group();
-    playerGroup.position.set(0, 0, 12);
+    playerGroup.position.set(playerPosRef.current.x, 0, playerPosRef.current.z);
 
     const playerCapsuleGeo = new THREE.CylinderGeometry(0.45, 0.45, 1.7, 16);
     const playerCapsuleMat = new THREE.MeshStandardMaterial({ color: 0x34d399, roughness: 0.3 });
@@ -293,7 +297,7 @@ export default function UnityCanvas({
 
     scene.add(playerGroup);
 
-    // Keyboard Input Listeners
+    // Keyboard Listeners
     const onKeyDown = (e: KeyboardEvent) => {
       keysPressed.current[e.key.toLowerCase()] = true;
       if (e.key.toLowerCase() === "c") setIsCrouching((p) => !p);
@@ -310,39 +314,36 @@ export default function UnityCanvas({
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
 
-    // Interaction Event Execution
+    // Interaction Trigger Handler (Uses refs to avoid re-mounting scene!)
     const handleInteractTrigger = () => {
-      const pX = playerGroup.position.x;
-      const pZ = playerGroup.position.z;
+      const px = playerPosRef.current.x;
+      const pz = playerPosRef.current.z;
+      const curWorldState = worldStateRef.current;
 
-      // Base One Door Check
-      if (Math.hypot(pX - (-14), pZ - (-5)) < 3.5) {
-        setWorldState((prev) => {
-          const nextState = !prev.baseOneDoorOpen;
-          doorMesh.material.color.setHex(nextState ? 0x10b981 : 0xef4444);
-          doorGroup.rotation.y = nextState ? Math.PI / 2 : 0;
-          logAction(`Base One Door ${nextState ? "OPENED" : "CLOSED"}. Walk inside to explore interior rooms!`);
-          return { ...prev, baseOneDoorOpen: nextState };
-        });
+      // Base One Door
+      if (Math.hypot(px - (-14), pz - (-5)) < 3.5) {
+        const nextState = !curWorldState.baseOneDoorOpen;
+        doorMesh.material.color.setHex(nextState ? 0x10b981 : 0xef4444);
+        doorGroup.rotation.y = nextState ? Math.PI / 2 : 0;
+        logAction(`Base One Door ${nextState ? "OPENED" : "CLOSED"}. Walk inside to explore interior rooms!`);
+        setWorldState((prev) => ({ ...prev, baseOneDoorOpen: nextState }));
       }
-      // Base One Generator Check
-      else if (Math.hypot(pX - (-18), pZ - (-16)) < 3.5) {
-        setWorldState((prev) => {
-          if (!prev.baseOneGeneratorRepaired) {
-            genMesh.material.color.setHex(0x10b981);
-            baseOneIntLight.intensity = 2.5;
-            logAction("Base One Generator repaired! Interior lights & grid powered ON.");
-            return { ...prev, baseOneGeneratorRepaired: true, baseOneGeneratorRunning: true };
-          } else {
-            const nextRun = !prev.baseOneGeneratorRunning;
-            baseOneIntLight.intensity = nextRun ? 2.5 : 0;
-            logAction(`Base One Generator toggled: ${nextRun ? "RUNNING" : "OFF"}.`);
-            return { ...prev, baseOneGeneratorRunning: nextRun };
-          }
-        });
+      // Base One Generator
+      else if (Math.hypot(px - (-18), pz - (-16)) < 3.5) {
+        if (!curWorldState.baseOneGeneratorRepaired) {
+          genMesh.material.color.setHex(0x10b981);
+          baseOneIntLight.intensity = 2.5;
+          logAction("Base One Generator repaired! Interior lights & grid powered ON.");
+          setWorldState((prev) => ({ ...prev, baseOneGeneratorRepaired: true, baseOneGeneratorRunning: true }));
+        } else {
+          const nextRun = !curWorldState.baseOneGeneratorRunning;
+          baseOneIntLight.intensity = nextRun ? 2.5 : 0;
+          logAction(`Base One Generator toggled: ${nextRun ? "RUNNING" : "OFF"}.`);
+          setWorldState((prev) => ({ ...prev, baseOneGeneratorRunning: nextRun }));
+        }
       }
-      // Base One Water Pump Check
-      else if (Math.hypot(pX - (-18), pZ - (-9)) < 3.5) {
+      // Base One Water Pump
+      else if (Math.hypot(px - (-18), pz - (-9)) < 3.5) {
         setWorldState((prev) => ({ ...prev, waterCount: prev.waterCount + 2 }));
         setInventory((prev) => {
           const exist = prev.find((i) => i.id === "item_purified_water");
@@ -351,12 +352,11 @@ export default function UnityCanvas({
         });
         logAction("Collected +2 Purified Water Rations from Base One Water Pump.");
       }
-      // Radio Room Node 17 Broadcast Check
-      else if (Math.hypot(pX - (-7), pZ - (-16)) < 3.5) {
-        setJournal((j) => {
-          if (j.some((item) => item.id === "evidence_continuity_signal")) return j;
+      // Radio Room
+      else if (Math.hypot(px - (-7), pz - (-16)) < 3.5) {
+        if (!journalRef.current.some((item) => item.id === "evidence_continuity_signal")) {
           logAction("Radio Broadcast Received: 'CONTINUITY NODE 17 ACTIVE... SEEK COORDINATOR...'");
-          return [
+          setJournal((j) => [
             ...j,
             {
               id: "evidence_continuity_signal",
@@ -364,64 +364,53 @@ export default function UnityCanvas({
               content: "CONTINUITY NODE 17 ACTIVE... SEEK COORDINATOR...",
               location: "Base One Radio Room",
             },
-          ];
-        });
+          ]);
+        }
       }
       // Substation Check
-      else if (Math.hypot(pX - 18, pZ - 12) < 4.0) {
-        setWorldState((prev) => {
-          if (!prev.substationPowerOnline) {
-            linkMesh.material.color.setHex(0x38bdf8);
-            subIntLight.color.setHex(0x38bdf8);
-            logAction("Substation Power Link RESTORED! Power connected to Pharmacy interior.");
-            return { ...prev, substationPowerOnline: true };
-          }
-          return prev;
-        });
+      else if (Math.hypot(px - 18, pz - 12) < 4.0) {
+        if (!curWorldState.substationPowerOnline) {
+          linkMesh.material.color.setHex(0x38bdf8);
+          subIntLight.color.setHex(0x38bdf8);
+          logAction("Substation Power Link RESTORED! Power connected to Pharmacy interior.");
+          setWorldState((prev) => ({ ...prev, substationPowerOnline: true }));
+        }
       }
       // Pharmacy Cache Check
-      else if (Math.hypot(pX - 15.5, pZ - (-13.5)) < 3.5) {
-        setWorldState((prev) => {
-          if (!prev.substationPowerOnline) {
-            logAction("Pharmacy Storage Cache is LOCKED! Restore Substation Power Link first.");
-            return prev;
-          }
-          if (!prev.pharmacySearched) {
-            cacheMesh.material.color.setHex(0x64748b);
-            setInventory((inv) => {
-              const exist = inv.find((i) => i.id === "item_medkit");
-              if (exist) return inv.map((i) => (i.id === "item_medkit" ? { ...i, count: i.count + 2 } : i));
-              return [...inv, { id: "item_medkit", name: "Medical Kit", count: 2 }];
-            });
-            logAction("Searched Pharmacy Cache: Found 2x Medical Kits!");
-            return { ...prev, pharmacySearched: true };
-          }
-          return prev;
-        });
+      else if (Math.hypot(px - 15.5, pz - (-13.5)) < 3.5) {
+        if (!curWorldState.substationPowerOnline) {
+          logAction("Pharmacy Storage Cache is LOCKED! Restore Substation Power Link first.");
+        } else if (!curWorldState.pharmacySearched) {
+          cacheMesh.material.color.setHex(0x64748b);
+          setInventory((inv) => {
+            const exist = inv.find((i) => i.id === "item_medkit");
+            if (exist) return inv.map((i) => (i.id === "item_medkit" ? { ...i, count: i.count + 2 } : i));
+            return [...inv, { id: "item_medkit", name: "Medical Kit", count: 2 }];
+          });
+          logAction("Searched Pharmacy Cache: Found 2x Medical Kits!");
+          setWorldState((prev) => ({ ...prev, pharmacySearched: true }));
+        }
       }
       // Evidence Note Check
-      else if (Math.hypot(pX - 20.5, pZ - (-13.5)) < 3.5) {
-        setWorldState((prev) => {
-          if (!prev.evidenceCollected) {
-            noteMesh.visible = false;
-            setJournal((j) => [
-              ...j,
-              {
-                id: "evidence_pharmacist_note",
-                title: "Pharmacist's Emergency Note",
-                content: "The emergency network told us to stay inside... Node 17 took control of the grid...",
-                location: "Pharmacy Office Desk",
-              },
-            ]);
-            logAction("Discovered Evidence: 'Pharmacist's Emergency Note' logged to Journal (Tab).");
-            return { ...prev, evidenceCollected: true };
-          }
-          return prev;
-        });
+      else if (Math.hypot(px - 20.5, pz - (-13.5)) < 3.5) {
+        if (!curWorldState.evidenceCollected) {
+          noteMesh.visible = false;
+          setJournal((j) => [
+            ...j,
+            {
+              id: "evidence_pharmacist_note",
+              title: "Pharmacist's Emergency Note",
+              content: "The emergency network told us to stay inside... Node 17 took control of the grid...",
+              location: "Pharmacy Office Desk",
+            },
+          ]);
+          logAction("Discovered Evidence: 'Pharmacist's Emergency Note' logged to Journal (Tab).");
+          setWorldState((prev) => ({ ...prev, evidenceCollected: true }));
+        }
       }
     };
 
-    // 60 FPS Engine Animation & Dynamic Occlusion Loop
+    // 60 FPS Engine Animation Loop (Continuous, never re-instantiated!)
     let animId: number;
     const animate = () => {
       animId = requestAnimationFrame(animate);
@@ -438,101 +427,79 @@ export default function UnityCanvas({
       const running = !!keysPressed.current["shift"];
       setIsRunning(running);
 
-      const moveSpeed = isCrouching ? 0.08 : running ? 0.22 : 0.14;
+      const moveSpeed = isCrouchingRef.current ? 0.08 : running ? 0.22 : 0.14;
 
       if (moveX !== 0 || moveZ !== 0) {
         const angle = Math.atan2(moveX, moveZ);
         playerGroup.rotation.y = angle;
 
-        playerGroup.position.x += Math.sin(angle) * moveSpeed;
-        playerGroup.position.z += Math.cos(angle) * moveSpeed;
+        playerPosRef.current.x += Math.sin(angle) * moveSpeed;
+        playerPosRef.current.z += Math.cos(angle) * moveSpeed;
 
-        playerGroup.position.x = Math.max(-55, Math.min(55, playerGroup.position.x));
-        playerGroup.position.z = Math.max(-55, Math.min(55, playerGroup.position.z));
+        playerPosRef.current.x = Math.max(-55, Math.min(55, playerPosRef.current.x));
+        playerPosRef.current.z = Math.max(-55, Math.min(55, playerPosRef.current.z));
+
+        playerGroup.position.x = playerPosRef.current.x;
+        playerGroup.position.z = playerPosRef.current.z;
 
         setPlayerCoords({
-          x: Math.round(playerGroup.position.x),
-          z: Math.round(playerGroup.position.z),
+          x: Math.round(playerPosRef.current.x),
+          z: Math.round(playerPosRef.current.z),
         });
       }
 
-      // Check Interior Location & Dynamic Roof Fade-out
       const px = playerGroup.position.x;
       const pz = playerGroup.position.z;
 
+      // Interior Roof Opacity Cutout
       const isInsideBaseOne = px >= -21 && px <= -3 && pz >= -19 && pz <= -5;
       const isInsidePharmacy = px >= 13 && px <= 23 && pz >= -16 && pz <= -8;
       const isInsideSubstation = px >= 11 && px <= 25 && pz >= 9 && pz <= 19;
 
-      if (isInsideBaseOne) {
-        setInsideLocation("BASE ONE INTERIOR (Quarters, Generator, Radio Room)");
-        b1RoofMat.opacity = 0.1; // Make roof transparent so camera sees interior rooms!
-      } else {
-        b1RoofMat.opacity = 0.9;
-      }
+      b1RoofMat.opacity = isInsideBaseOne ? 0.1 : 0.9;
+      pharmRoofMat.opacity = isInsidePharmacy ? 0.1 : 0.9;
+      subRoofMat.opacity = isInsideSubstation ? 0.1 : 0.9;
 
-      if (isInsidePharmacy) {
-        setInsideLocation("PHARMACY INTERIOR (Store Floor & Storage)");
-        pharmRoofMat.opacity = 0.1;
-      } else {
-        pharmRoofMat.opacity = 0.9;
-      }
+      if (isInsideBaseOne) setInsideLocation("BASE ONE INTERIOR (Quarters, Generator, Radio Room)");
+      else if (isInsidePharmacy) setInsideLocation("PHARMACY INTERIOR (Store Floor & Storage)");
+      else if (isInsideSubstation) setInsideLocation("SUBSTATION INTERIOR (Control Room)");
+      else setInsideLocation(null);
 
-      if (isInsideSubstation) {
-        setInsideLocation("SUBSTATION INTERIOR (Control Room)");
-        subRoofMat.opacity = 0.1;
-      } else {
-        subRoofMat.opacity = 0.9;
-      }
-
-      if (!isInsideBaseOne && !isInsidePharmacy && !isInsideSubstation) {
-        setInsideLocation(null);
-      }
-
-      // Dynamic Camera Position (Zooms in slightly when inside interiors for detailed room viewing)
+      // Camera Follow
       const camY = isInsideBaseOne || isInsidePharmacy || isInsideSubstation ? 10 : 15;
       const camZ = isInsideBaseOne || isInsidePharmacy || isInsideSubstation ? 10 : 16;
+      camera.position.set(px, playerGroup.position.y + camY, pz + camZ);
+      camera.lookAt(px, playerGroup.position.y + 1, pz);
 
-      camera.position.set(playerGroup.position.x, playerGroup.position.y + camY, playerGroup.position.z + camZ);
-      camera.lookAt(playerGroup.position.x, playerGroup.position.y + 1, playerGroup.position.z);
-
-      // Proximity Detection for Interaction Prompts
+      // Interaction Prompts Sensing
+      const curWorldState = worldStateRef.current;
       let prompt: string | null = null;
-      let id: string | null = null;
 
       if (Math.hypot(px - (-14), pz - (-5)) < 3.5) {
-        prompt = `[E] ${worldState.baseOneDoorOpen ? "Close" : "Open"} Base One Door`;
-        id = "base_one_door";
+        prompt = `[E] ${curWorldState.baseOneDoorOpen ? "Close" : "Open"} Base One Door`;
       } else if (Math.hypot(px - (-18), pz - (-16)) < 3.5) {
-        prompt = worldState.baseOneGeneratorRepaired
-          ? `[E] ${worldState.baseOneGeneratorRunning ? "Shut Down" : "Start"} Generator`
+        prompt = curWorldState.baseOneGeneratorRepaired
+          ? `[E] ${curWorldState.baseOneGeneratorRunning ? "Shut Down" : "Start"} Generator`
           : "[E] Repair Base One Generator (Requires 3x Scrap Metal)";
-        id = "base_one_generator";
       } else if (Math.hypot(px - (-18), pz - (-9)) < 3.5) {
         prompt = "[E] Collect Purified Water Rations (+2)";
-        id = "base_one_water";
       } else if (Math.hypot(px - (-7), pz - (-16)) < 3.5) {
         prompt = "[E] Tune Emergency Radio (Node 17 Transmission)";
-        id = "base_one_radio";
       } else if (Math.hypot(px - 18, pz - 12) < 4.0) {
-        prompt = worldState.substationPowerOnline
+        prompt = curWorldState.substationPowerOnline
           ? "[E] Substation Grid Power ONLINE"
           : "[E] Restore Substation Power Link to Pharmacy";
-        id = "substation_power_link";
       } else if (Math.hypot(px - 15.5, pz - (-13.5)) < 3.5) {
-        prompt = !worldState.substationPowerOnline
+        prompt = !curWorldState.substationPowerOnline
           ? "[E] Storage Cache LOCKED (Requires Power Link)"
-          : worldState.pharmacySearched
+          : curWorldState.pharmacySearched
           ? "[E] Medicine Cache EMPTY"
           : "[E] Search Medicine Cache (+2 Medkits)";
-        id = "pharmacy_locker";
-      } else if (Math.hypot(px - 20.5, pz - (-13.5)) < 3.5 && !worldState.evidenceCollected) {
+      } else if (Math.hypot(px - 20.5, pz - (-13.5)) < 3.5 && !curWorldState.evidenceCollected) {
         prompt = "[E] Inspect Pharmacist's Emergency Note";
-        id = "pharmacy_evidence";
       }
 
       setCurrentPrompt(prompt);
-      setActiveInteractableId(id);
 
       renderer.render(scene, camera);
     };
@@ -558,11 +525,7 @@ export default function UnityCanvas({
         container.removeChild(renderer.domElement);
       }
     };
-  }, [worldState, isCrouching]);
-
-  const logAction = (msg: string) => {
-    setActionLog((prev) => [msg, ...prev.slice(0, 4)]);
-  };
+  }, []); // [] dependency array ensures Three.js 3D Engine initializes ONCE on mount!
 
   return (
     <div className="relative w-full h-[600px] bg-slate-950 border border-emerald-900/40 rounded-xl overflow-hidden shadow-2xl">
@@ -577,7 +540,7 @@ export default function UnityCanvas({
         </div>
       )}
 
-      {/* Location Badge (Shows when inside 3D interior rooms) */}
+      {/* Location Badge */}
       {insideLocation && (
         <div className="absolute top-6 right-6 bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-mono text-xs px-3 py-1.5 rounded-lg shadow-lg flex items-center gap-2 z-20">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
