@@ -1,25 +1,21 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import * as THREE from "three";
 
 interface UnityCanvasProps {
   buildUrl?: string;
-  onStateUpdate?: (state: any) => void;
 }
 
 export default function UnityCanvas({
   buildUrl = process.env.NEXT_PUBLIC_UNITY_BUILD_URL || "/game-build/Build/game.json",
-  onStateUpdate,
 }: UnityCanvasProps) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [loadProgress, setLoadProgress] = useState(0);
-  const [buildMissing, setBuildMissing] = useState(true);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Active Simulation State
-  const [playerPos, setPlayerPos] = useState({ x: 200, y: 300 });
-  const [playerAngle, setPlayerAngle] = useState(0);
   const [isCrouching, setIsCrouching] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const [playerCoords, setPlayerCoords] = useState({ x: 0, z: 12 });
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(null);
   const [activeInteractableId, setActiveInteractableId] = useState<string | null>(null);
 
@@ -29,11 +25,9 @@ export default function UnityCanvas({
     baseOneGeneratorRepaired: false,
     baseOneGeneratorRunning: false,
     substationPowerOnline: false,
-    pharmacyLockerUnlocked: false,
     pharmacySearched: false,
     evidenceCollected: false,
-    waterCollectedCount: 0,
-    scrapCollectedCount: 3,
+    waterCount: 0,
   });
 
   const [inventory, setInventory] = useState<Array<{ id: string; name: string; count: number }>>([
@@ -43,390 +37,451 @@ export default function UnityCanvas({
   const [journal, setJournal] = useState<Array<{ id: string; title: string; content: string; location: string }>>([]);
   const [showJournal, setShowJournal] = useState(false);
   const [actionLog, setActionLog] = useState<string[]>([
-    "Coordinator initialized at City Block 01.",
-    "System: Approach Base One, Pharmacy, or Substation to interact.",
+    "Coordinator awake at Base One exterior.",
+    "System: 3D WebGL Engine Active. Use WASD to move, E to interact, Tab for Journal.",
   ]);
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const keysPressed = useRef<{ [key: string]: boolean }>({});
 
-  // Check WebGL Build Availability
+  // 3D Three.js Engine Setup & Render Loop
   useEffect(() => {
-    fetch(buildUrl, { method: "HEAD" })
-      .then((res) => {
-        if (res.ok) setBuildMissing(false);
-      })
-      .catch(() => setBuildMissing(true));
-  }, [buildUrl]);
+    const container = containerRef.current;
+    if (!container) return;
 
-  // Keyboard Event Handlers
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    // 1. Scene & Renderer Initialization
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x020617); // slate-950
+    scene.fog = new THREE.FogExp2(0x020617, 0.015);
+
+    const width = container.clientWidth || 800;
+    const height = container.clientHeight || 560;
+
+    const camera = new THREE.PerspectiveCamera(55, width / height, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(width, height);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    container.appendChild(renderer.domElement);
+
+    // 2. 3D Lights Setup
+    const ambientLight = new THREE.AmbientLight(0x38bdf8, 0.4); // Sky tint
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xfef08a, 1.2); // Sunlight
+    dirLight.position.set(20, 40, 20);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 1024;
+    dirLight.shadow.mapSize.height = 1024;
+    scene.add(dirLight);
+
+    // Generator PointLight
+    const genLight = new THREE.PointLight(0x10b981, 0, 10);
+    genLight.position.set(-10, 2, -10);
+    scene.add(genLight);
+
+    // Substation PointLight
+    const subLight = new THREE.PointLight(0xf59e0b, 1, 12);
+    subLight.position.set(15, 2.5, 15);
+    scene.add(subLight);
+
+    // 3. 3D Terrain & Road Mesh (100m x 100m)
+    const groundGeo = new THREE.PlaneGeometry(120, 120);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // Grid Floor Overlay
+    const gridHelper = new THREE.GridHelper(120, 60, 0x1e293b, 0x1e293b);
+    gridHelper.position.y = 0.01;
+    scene.add(gridHelper);
+
+    // Asphalt Road (10m wide)
+    const roadGeo = new THREE.PlaneGeometry(120, 10);
+    const roadMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
+    const road = new THREE.Mesh(roadGeo, roadMat);
+    road.rotation.x = -Math.PI / 2;
+    road.position.set(0, 0.02, 0);
+    road.receiveShadow = true;
+    scene.add(road);
+
+    // 4. 3D BUILDING SHELLS (Standard Metrics: 1 unit = 1 meter)
+
+    // --- BUILDING 1: BASE ONE (18m x 14m x 4m) ---
+    const baseOneGroup = new THREE.Group();
+    baseOneGroup.position.set(-12, 0, -12);
+
+    // Base One Floor & Outer Walls
+    const b1WallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 });
+    const b1BuildingGeo = new THREE.BoxGeometry(18, 4, 14);
+    const b1Building = new THREE.Mesh(b1BuildingGeo, b1WallMat);
+    b1Building.position.set(0, 2, 0);
+    b1Building.castShadow = true;
+    b1Building.receiveShadow = true;
+    baseOneGroup.add(b1Building);
+
+    // Base One Roof Roof Frame Highlight
+    const b1RoofGeo = new THREE.BoxGeometry(18.4, 0.3, 14.4);
+    const b1RoofMat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.3 });
+    const b1Roof = new THREE.Mesh(b1RoofGeo, b1RoofMat);
+    b1Roof.position.set(0, 4.15, 0);
+    baseOneGroup.add(b1Roof);
+
+    // Base One 3D Door Mesh (2.0m x 0.9m)
+    const doorGroup = new THREE.Group();
+    doorGroup.position.set(0, 0, 7);
+    const doorGeo = new THREE.BoxGeometry(2.5, 2.8, 0.3);
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.4 });
+    const doorMesh = new THREE.Mesh(doorGeo, doorMat);
+    doorMesh.position.set(0, 1.4, 0);
+    doorMesh.castShadow = true;
+    doorGroup.add(doorMesh);
+    baseOneGroup.add(doorGroup);
+
+    // Base One Generator Turbine Props
+    const genGeo = new THREE.CylinderGeometry(1, 1, 2, 16);
+    const genMat = new THREE.MeshStandardMaterial({ color: 0x059669, metalness: 0.8 });
+    const genMesh = new THREE.Mesh(genGeo, genMat);
+    genMesh.position.set(-6, 1, -4);
+    baseOneGroup.add(genMesh);
+
+    // Base One Water Pump Props
+    const pumpGeo = new THREE.BoxGeometry(1.5, 2, 1.5);
+    const pumpMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.5 });
+    const pumpMesh = new THREE.Mesh(pumpGeo, pumpMat);
+    pumpMesh.position.set(6, 1, -4);
+    baseOneGroup.add(pumpMesh);
+
+    scene.add(baseOneGroup);
+
+    // --- BUILDING 2: PHARMACY (10m x 8m x 3.5m) ---
+    const pharmacyGroup = new THREE.Group();
+    pharmacyGroup.position.set(15, 0, -12);
+
+    const pharmGeo = new THREE.BoxGeometry(10, 3.5, 8);
+    const pharmMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 });
+    const pharmMesh = new THREE.Mesh(pharmGeo, pharmMat);
+    pharmMesh.position.set(0, 1.75, 0);
+    pharmMesh.castShadow = true;
+    pharmMesh.receiveShadow = true;
+    pharmacyGroup.add(pharmMesh);
+
+    const pharmRoofGeo = new THREE.BoxGeometry(10.4, 0.3, 8.4);
+    const pharmRoofMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3 });
+    const pharmRoof = new THREE.Mesh(pharmRoofGeo, pharmRoofMat);
+    pharmRoof.position.set(0, 3.65, 0);
+    pharmacyGroup.add(pharmRoof);
+
+    // Medicine Cache Box
+    const cacheGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+    const cacheMat = new THREE.MeshStandardMaterial({ color: 0x0284c7 });
+    const cacheMesh = new THREE.Mesh(cacheGeo, cacheMat);
+    cacheMesh.position.set(-2, 0.6, -1);
+    pharmacyGroup.add(cacheMesh);
+
+    // Pharmacist Evidence Note Object
+    const noteGeo = new THREE.BoxGeometry(0.6, 0.1, 0.8);
+    const noteMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xb45309 });
+    const noteMesh = new THREE.Mesh(noteGeo, noteMat);
+    noteMesh.position.set(2, 0.8, -1);
+    pharmacyGroup.add(noteMesh);
+
+    scene.add(pharmacyGroup);
+
+    // --- BUILDING 3: ELECTRICAL SUBSTATION (14m x 10m x 3.5m) ---
+    const subGroup = new THREE.Group();
+    subGroup.position.set(15, 0, 14);
+
+    const subGeo = new THREE.BoxGeometry(14, 3.5, 10);
+    const subMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 });
+    const subMesh = new THREE.Mesh(subGeo, subMat);
+    subMesh.position.set(0, 1.75, 0);
+    subMesh.castShadow = true;
+    subMesh.receiveShadow = true;
+    subGroup.add(subMesh);
+
+    const subRoofGeo = new THREE.BoxGeometry(14.4, 0.3, 10.4);
+    const subRoofMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.3 });
+    const subRoof = new THREE.Mesh(subRoofGeo, subRoofMat);
+    subRoof.position.set(0, 3.65, 0);
+    subGroup.add(subRoof);
+
+    // Power Link Box
+    const linkGeo = new THREE.BoxGeometry(1.5, 2.2, 1.5);
+    const linkMat = new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x064e3b });
+    const linkMesh = new THREE.Mesh(linkGeo, linkMat);
+    linkMesh.position.set(0, 1.1, -4);
+    subGroup.add(linkMesh);
+
+    scene.add(subGroup);
+
+    // 5. 3D CHARACTER (THE COORDINATOR - Height: 1.7m)
+    const playerGroup = new THREE.Group();
+    playerGroup.position.set(0, 0, 12);
+
+    const playerCapsuleGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.7, 16);
+    const playerCapsuleMat = new THREE.MeshStandardMaterial({ color: 0x34d399, roughness: 0.3 });
+    const playerCapsule = new THREE.Mesh(playerCapsuleGeo, playerCapsuleMat);
+    playerCapsule.position.y = 0.85;
+    playerCapsule.castShadow = true;
+    playerGroup.add(playerCapsule);
+
+    // Player Visor Pointer
+    const visorGeo = new THREE.BoxGeometry(0.5, 0.2, 0.4);
+    const visorMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, emissive: 0x0369a1 });
+    const visorMesh = new THREE.Mesh(visorGeo, visorMat);
+    visorMesh.position.set(0, 1.4, 0.3);
+    playerGroup.add(visorMesh);
+
+    scene.add(playerGroup);
+
+    // 6. Keyboard Listeners
+    const onKeyDown = (e: KeyboardEvent) => {
       keysPressed.current[e.key.toLowerCase()] = true;
-
-      if (e.key.toLowerCase() === "c") {
-        setIsCrouching((prev) => !prev);
-      }
+      if (e.key.toLowerCase() === "c") setIsCrouching((p) => !p);
       if (e.key === "Tab") {
         e.preventDefault();
-        setShowJournal((prev) => !prev);
+        setShowJournal((p) => !p);
       }
-      if (e.key.toLowerCase() === "e") {
-        handleInteract();
-      }
+      if (e.key.toLowerCase() === "e") handleInteractTrigger();
     };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
+    const onKeyUp = (e: KeyboardEvent) => {
       keysPressed.current[e.key.toLowerCase()] = false;
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
-  }, [activeInteractableId, worldState, inventory]);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
 
-  // Interaction Logic
-  const handleInteract = () => {
-    if (!activeInteractableId) return;
+    // 7. Interaction Handler Trigger
+    const handleInteractTrigger = () => {
+      const pX = playerGroup.position.x;
+      const pZ = playerGroup.position.z;
 
-    if (activeInteractableId === "base_one_door") {
-      setWorldState((prev) => ({ ...prev, baseOneDoorOpen: !prev.baseOneDoorOpen }));
-      logAction(`Base One Door ${!worldState.baseOneDoorOpen ? "opened" : "closed"}.`);
-    } else if (activeInteractableId === "base_one_generator") {
-      if (!worldState.baseOneGeneratorRepaired) {
-        if (inventory.find((i) => i.id === "item_scrap_metal" && i.count >= 3)) {
-          setWorldState((prev) => ({
-            ...prev,
-            baseOneGeneratorRepaired: true,
-            baseOneGeneratorRunning: true,
-          }));
-          setInventory((prev) =>
-            prev.map((i) => (i.id === "item_scrap_metal" ? { ...i, count: i.count - 3 } : i))
-          );
-          logAction("Generator repaired with 3x Scrap Metal! Base One power is ONLINE.");
-        } else {
-          logAction("Insufficient materials! Requires 3x Scrap Metal.");
-        }
-      } else {
-        setWorldState((prev) => ({
-          ...prev,
-          baseOneGeneratorRunning: !prev.baseOneGeneratorRunning,
-        }));
-        logAction(`Base One Generator toggled: ${!worldState.baseOneGeneratorRunning ? "RUNNING" : "OFF"}.`);
-      }
-    } else if (activeInteractableId === "base_one_water") {
-      setWorldState((prev) => ({ ...prev, waterCollectedCount: prev.waterCollectedCount + 2 }));
-      setInventory((prev) => {
-        const existing = prev.find((i) => i.id === "item_purified_water");
-        if (existing) {
-          return prev.map((i) => (i.id === "item_purified_water" ? { ...i, count: i.count + 2 } : i));
-        }
-        return [...prev, { id: "item_purified_water", name: "Purified Water", count: 2 }];
-      });
-      logAction("Collected +2 Purified Water Rations from Water Pump.");
-    } else if (activeInteractableId === "substation_power_link") {
-      if (!worldState.substationPowerOnline) {
-        setWorldState((prev) => ({ ...prev, substationPowerOnline: true, pharmacyLockerUnlocked: true }));
-        logAction("Electrical Substation restored! Grid power linked to Pharmacy.");
-      }
-    } else if (activeInteractableId === "pharmacy_locker") {
-      if (!worldState.substationPowerOnline) {
-        logAction("Pharmacy Locker requires power! Restore Substation link first.");
-      } else if (!worldState.pharmacySearched) {
-        setWorldState((prev) => ({ ...prev, pharmacySearched: true }));
-        setInventory((prev) => {
-          const existing = prev.find((i) => i.id === "item_medkit");
-          if (existing) {
-            return prev.map((i) => (i.id === "item_medkit" ? { ...i, count: i.count + 2 } : i));
-          }
-          return [...prev, { id: "item_medkit", name: "Medical Kit", count: 2 }];
+      // Door Check
+      if (Math.hypot(pX - (-12), pZ - (-5)) < 3.5) {
+        setWorldState((prev) => {
+          const nextState = !prev.baseOneDoorOpen;
+          doorMesh.material.color.setHex(nextState ? 0x10b981 : 0xef4444);
+          doorGroup.rotation.y = nextState ? Math.PI / 2 : 0;
+          logAction(`Base One Door ${nextState ? "opened" : "closed"}.`);
+          return { ...prev, baseOneDoorOpen: nextState };
         });
-        logAction("Searched Pharmacy Medicine Cache: Found 2x Medical Kits!");
       }
-    } else if (activeInteractableId === "pharmacy_evidence") {
-      if (!worldState.evidenceCollected) {
-        setWorldState((prev) => ({ ...prev, evidenceCollected: true }));
-        setJournal((prev) => [
-          ...prev,
-          {
-            id: "evidence_pharmacist_note",
-            title: "Pharmacist's Emergency Note",
-            content: "The emergency network told us to stay inside... Node 17 took control of the grid...",
-            location: "Pharmacy Office Desk",
-          },
-        ]);
-        logAction("Discovered Evidence: 'Pharmacist's Emergency Note' logged to Journal (Tab).");
+      // Generator Check
+      else if (Math.hypot(pX - (-18), pZ - (-16)) < 3.5) {
+        setWorldState((prev) => {
+          if (!prev.baseOneGeneratorRepaired) {
+            genMesh.material.color.setHex(0x10b981);
+            genLight.intensity = 2;
+            logAction("Base One Generator repaired & running! Power grid online.");
+            return { ...prev, baseOneGeneratorRepaired: true, baseOneGeneratorRunning: true };
+          } else {
+            const nextRun = !prev.baseOneGeneratorRunning;
+            genLight.intensity = nextRun ? 2 : 0;
+            logAction(`Base One Generator toggled: ${nextRun ? "RUNNING" : "OFF"}.`);
+            return { ...prev, baseOneGeneratorRunning: nextRun };
+          }
+        });
       }
-    }
-  };
+      // Water Pump Check
+      else if (Math.hypot(pX - (-6), pZ - (-16)) < 3.5) {
+        setWorldState((prev) => ({ ...prev, waterCount: prev.waterCount + 2 }));
+        setInventory((prev) => {
+          const exist = prev.find((i) => i.id === "item_purified_water");
+          if (exist) return prev.map((i) => (i.id === "item_purified_water" ? { ...i, count: i.count + 2 } : i));
+          return [...prev, { id: "item_purified_water", name: "Purified Water", count: 2 }];
+        });
+        logAction("Collected +2 Purified Water Rations from Water Pump.");
+      }
+      // Substation Power Link Check
+      else if (Math.hypot(pX - 15, pZ - 10) < 3.5) {
+        setWorldState((prev) => {
+          if (!prev.substationPowerOnline) {
+            linkMesh.material.color.setHex(0x38bdf8);
+            subLight.color.setHex(0x38bdf8);
+            logAction("Substation Power Link RESTORED! Power grid connected to Pharmacy.");
+            return { ...prev, substationPowerOnline: true };
+          }
+          return prev;
+        });
+      }
+      // Pharmacy Cache Check
+      else if (Math.hypot(pX - 13, pZ - (-13)) < 3.5) {
+        setWorldState((prev) => {
+          if (!prev.substationPowerOnline) {
+            logAction("Pharmacy Storage Cache is LOCKED! Restore Substation Link first.");
+            return prev;
+          }
+          if (!prev.pharmacySearched) {
+            cacheMesh.material.color.setHex(0x64748b);
+            setInventory((inv) => {
+              const exist = inv.find((i) => i.id === "item_medkit");
+              if (exist) return inv.map((i) => (i.id === "item_medkit" ? { ...i, count: i.count + 2 } : i));
+              return [...inv, { id: "item_medkit", name: "Medical Kit", count: 2 }];
+            });
+            logAction("Searched Pharmacy Cache: Found 2x Medical Kits!");
+            return { ...prev, pharmacySearched: true };
+          }
+          return prev;
+        });
+      }
+      // Evidence Note Check
+      else if (Math.hypot(pX - 17, pZ - (-13)) < 3.5) {
+        setWorldState((prev) => {
+          if (!prev.evidenceCollected) {
+            noteMesh.visible = false;
+            setJournal((j) => [
+              ...j,
+              {
+                id: "evidence_pharmacist_note",
+                title: "Pharmacist's Emergency Note",
+                content: "The emergency network told us to stay inside... Node 17 took control of the grid...",
+                location: "Pharmacy Office Desk",
+              },
+            ]);
+            logAction("Discovered Evidence: 'Pharmacist's Emergency Note' logged to Journal (Tab).");
+            return { ...prev, evidenceCollected: true };
+          }
+          return prev;
+        });
+      }
+    };
+
+    // 8. 60 FPS Render & Physics Loop
+    let animId: number;
+    const animate = () => {
+      animId = requestAnimationFrame(animate);
+
+      // Movement Calculations
+      let moveX = 0;
+      let moveZ = 0;
+
+      if (keysPressed.current["w"] || keysPressed.current["arrowup"]) moveZ -= 1;
+      if (keysPressed.current["s"] || keysPressed.current["arrowdown"]) moveZ += 1;
+      if (keysPressed.current["a"] || keysPressed.current["arrowleft"]) moveX -= 1;
+      if (keysPressed.current["d"] || keysPressed.current["arrowright"]) moveX += 1;
+
+      const running = !!keysPressed.current["shift"];
+      setIsRunning(running);
+
+      const moveSpeed = isCrouching ? 0.08 : running ? 0.22 : 0.14;
+
+      if (moveX !== 0 || moveZ !== 0) {
+        const angle = Math.atan2(moveX, moveZ);
+        playerGroup.rotation.y = angle;
+
+        playerGroup.position.x += Math.sin(angle) * moveSpeed;
+        playerGroup.position.z += Math.cos(angle) * moveSpeed;
+
+        // Keep bounds
+        playerGroup.position.x = Math.max(-50, Math.min(50, playerGroup.position.x));
+        playerGroup.position.z = Math.max(-50, Math.min(50, playerGroup.position.z));
+
+        setPlayerCoords({
+          x: Math.round(playerGroup.position.x),
+          z: Math.round(playerGroup.position.z),
+        });
+      }
+
+      // Smooth Third-Person Camera Follow (45-degree angled view)
+      camera.position.set(playerGroup.position.x, playerGroup.position.y + 14, playerGroup.position.z + 16);
+      camera.lookAt(playerGroup.position.x, playerGroup.position.y + 1, playerGroup.position.z);
+
+      // Proximity Detection for Interaction Prompts
+      const pX = playerGroup.position.x;
+      const pZ = playerGroup.position.z;
+
+      let prompt: string | null = null;
+      let id: string | null = null;
+
+      if (Math.hypot(pX - (-12), pZ - (-5)) < 3.5) {
+        prompt = `[E] ${worldState.baseOneDoorOpen ? "Close" : "Open"} Base One Door`;
+        id = "base_one_door";
+      } else if (Math.hypot(pX - (-18), pZ - (-16)) < 3.5) {
+        prompt = worldState.baseOneGeneratorRepaired
+          ? `[E] ${worldState.baseOneGeneratorRunning ? "Shut Down" : "Start"} Generator`
+          : "[E] Repair Base One Generator (Requires 3x Scrap Metal)";
+        id = "base_one_generator";
+      } else if (Math.hypot(pX - (-6), pZ - (-16)) < 3.5) {
+        prompt = "[E] Collect Purified Water Rations";
+        id = "base_one_water";
+      } else if (Math.hypot(pX - 15, pZ - 10) < 3.5) {
+        prompt = worldState.substationPowerOnline
+          ? "[E] Substation Grid Power ONLINE"
+          : "[E] Restore Substation Power Link to Pharmacy";
+        id = "substation_power_link";
+      } else if (Math.hypot(pX - 13, pZ - (-13)) < 3.5) {
+        prompt = !worldState.substationPowerOnline
+          ? "[E] Storage Cache LOCKED (Requires Power)"
+          : worldState.pharmacySearched
+          ? "[E] Medicine Cache EMPTY"
+          : "[E] Search Medicine Cache";
+        id = "pharmacy_locker";
+      } else if (Math.hypot(pX - 17, pZ - (-13)) < 3.5 && !worldState.evidenceCollected) {
+        prompt = "[E] Inspect Pharmacist's Emergency Note";
+        id = "pharmacy_evidence";
+      }
+
+      setCurrentPrompt(prompt);
+      setActiveInteractableId(id);
+
+      renderer.render(scene, camera);
+    };
+
+    animId = requestAnimationFrame(animate);
+
+    // Resize Handler
+    const handleResize = () => {
+      if (!container) return;
+      const nw = container.clientWidth;
+      const nh = container.clientHeight;
+      camera.aspect = nw / nh;
+      camera.updateProjectionMatrix();
+      renderer.setSize(nw, nh);
+    };
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("resize", handleResize);
+      if (container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement);
+      }
+    };
+  }, [worldState, isCrouching]);
 
   const logAction = (msg: string) => {
     setActionLog((prev) => [msg, ...prev.slice(0, 4)]);
   };
 
-  // Main 60 FPS Game Render & Input Loop
-  useEffect(() => {
-    let animationFrameId: number;
-
-    const gameLoop = () => {
-      // Input Movement Processing
-      let dx = 0;
-      let dy = 0;
-
-      if (keysPressed.current["w"] || keysPressed.current["arrowup"]) dy -= 1;
-      if (keysPressed.current["s"] || keysPressed.current["arrowdown"]) dy += 1;
-      if (keysPressed.current["a"] || keysPressed.current["arrowleft"]) dx -= 1;
-      if (keysPressed.current["d"] || keysPressed.current["arrowright"]) dx += 1;
-
-      const running = !!keysPressed.current["shift"];
-      setIsRunning(running);
-
-      const speed = isCrouching ? 1.5 : running ? 4.5 : 2.8;
-
-      if (dx !== 0 || dy !== 0) {
-        const len = Math.sqrt(dx * dx + dy * dy);
-        const nx = (dx / len) * speed;
-        const ny = (dy / len) * speed;
-
-        setPlayerPos((prev) => {
-          const newX = Math.max(20, Math.min(760, prev.x + nx));
-          const newY = Math.max(20, Math.min(540, prev.y + ny));
-          return { x: newX, y: newY };
-        });
-
-        setPlayerAngle(Math.atan2(dy, dx));
-      }
-
-      // Render 2.5D Canvas Viewport
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          // Clear Canvas
-          ctx.fillStyle = "#020617"; // slate-950
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-          // Grid Lines
-          ctx.strokeStyle = "#1e293b";
-          ctx.lineWidth = 1;
-          for (let x = 0; x < canvas.width; x += 40) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, canvas.height);
-            ctx.stroke();
-          }
-          for (let y = 0; y < canvas.height; y += 40) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(canvas.width, y);
-            ctx.stroke();
-          }
-
-          // Roads & Sidewalks
-          ctx.fillStyle = "#0f172a";
-          ctx.fillRect(0, 260, canvas.width, 80); // Road
-          ctx.strokeStyle = "#334155";
-          ctx.setLineDash([15, 15]);
-          ctx.beginPath();
-          ctx.moveTo(0, 300);
-          ctx.lineTo(canvas.width, 300);
-          ctx.stroke();
-          ctx.setLineDash([]);
-
-          // --- BUILDING 1: BASE ONE (18m x 14m) ---
-          ctx.fillStyle = "#0f172a";
-          ctx.strokeStyle = worldState.baseOneGeneratorRunning ? "#10b981" : "#475569";
-          ctx.lineWidth = 2;
-          ctx.fillRect(100, 60, 220, 160);
-          ctx.strokeRect(100, 60, 220, 160);
-
-          ctx.fillStyle = "#e2e8f0";
-          ctx.font = "bold 12px monospace";
-          ctx.fillText("BASE ONE (Player Base)", 110, 85);
-
-          // Base One Door
-          ctx.fillStyle = worldState.baseOneDoorOpen ? "#10b981" : "#ef4444";
-          ctx.fillRect(190, 215, 40, 10);
-          ctx.fillStyle = "#94a3b8";
-          ctx.font = "10px monospace";
-          ctx.fillText(worldState.baseOneDoorOpen ? "DOOR: OPEN" : "DOOR: CLOSED", 175, 240);
-
-          // Base One Generator
-          ctx.fillStyle = worldState.baseOneGeneratorRunning ? "#059669" : "#dc2626";
-          ctx.fillRect(115, 110, 35, 35);
-          ctx.fillStyle = "#cbd5e1";
-          ctx.fillText("GEN", 122, 132);
-
-          // Water Pump
-          ctx.fillStyle = "#0284c7";
-          ctx.fillRect(270, 110, 35, 35);
-          ctx.fillStyle = "#e0f2fe";
-          ctx.fillText("PUMP", 273, 132);
-
-          // --- BUILDING 2: PHARMACY (10m x 8m) ---
-          ctx.fillStyle = "#0f172a";
-          ctx.strokeStyle = worldState.substationPowerOnline ? "#38bdf8" : "#475569";
-          ctx.fillRect(480, 60, 180, 140);
-          ctx.strokeRect(480, 60, 180, 140);
-
-          ctx.fillStyle = "#e2e8f0";
-          ctx.fillText("PHARMACY", 490, 85);
-
-          // Pharmacy Storage Cabinet
-          ctx.fillStyle = worldState.pharmacySearched
-            ? "#64748b"
-            : worldState.substationPowerOnline
-            ? "#0284c7"
-            : "#ef4444";
-          ctx.fillRect(500, 110, 40, 30);
-          ctx.fillStyle = "#ffffff";
-          ctx.fillText(worldState.pharmacySearched ? "EMPTY" : "CACHE", 503, 128);
-
-          // Evidence Note
-          if (!worldState.evidenceCollected) {
-            ctx.fillStyle = "#f59e0b";
-            ctx.fillRect(600, 120, 20, 20);
-            ctx.fillStyle = "#000000";
-            ctx.fillText("NOTE", 601, 134);
-          }
-
-          // --- BUILDING 3: ELECTRICAL SUBSTATION (14m x 10m) ---
-          ctx.fillStyle = "#0f172a";
-          ctx.strokeStyle = worldState.substationPowerOnline ? "#f59e0b" : "#475569";
-          ctx.fillRect(480, 370, 180, 140);
-          ctx.strokeRect(480, 370, 180, 140);
-
-          ctx.fillStyle = "#e2e8f0";
-          ctx.fillText("SUBSTATION NODE", 490, 395);
-
-          // Substation Control Box
-          ctx.fillStyle = worldState.substationPowerOnline ? "#10b981" : "#f59e0b";
-          ctx.fillRect(540, 420, 40, 40);
-          ctx.fillStyle = "#000000";
-          ctx.fillText("LINK", 548, 444);
-
-          // --- PLAYER (THE COORDINATOR) ---
-          ctx.save();
-          ctx.translate(playerPos.x, playerPos.y);
-
-          // Player Body Capsule
-          ctx.fillStyle = isCrouching ? "#065f46" : isRunning ? "#10b981" : "#34d399";
-          ctx.beginPath();
-          ctx.arc(0, 0, isCrouching ? 9 : 12, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = "#ffffff";
-          ctx.lineWidth = 2;
-          ctx.stroke();
-
-          // Direction Pointer
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(Math.cos(playerAngle) * 18, Math.sin(playerAngle) * 18);
-          ctx.strokeStyle = "#6ee7b7";
-          ctx.stroke();
-
-          ctx.restore();
-
-          // Player Label
-          ctx.fillStyle = "#6ee7b7";
-          ctx.font = "bold 11px monospace";
-          ctx.fillText("COORDINATOR", playerPos.x - 36, playerPos.y - 18);
-        }
-      }
-
-      // Proximity Detection for Interaction Prompts
-      let detectedPrompt: string | null = null;
-      let detectedId: string | null = null;
-
-      // Base One Door Check (x: 210, y: 220)
-      if (Math.hypot(playerPos.x - 210, playerPos.y - 220) < 40) {
-        detectedPrompt = `[E] ${worldState.baseOneDoorOpen ? "Close" : "Open"} Base One Door`;
-        detectedId = "base_one_door";
-      }
-      // Base One Generator Check (x: 132, y: 127)
-      else if (Math.hypot(playerPos.x - 132, playerPos.y - 127) < 40) {
-        if (!worldState.baseOneGeneratorRepaired) {
-          detectedPrompt = "[E] Repair Base One Generator (Requires 3x Scrap Metal)";
-        } else {
-          detectedPrompt = `[E] ${worldState.baseOneGeneratorRunning ? "Shut Down" : "Start"} Generator`;
-        }
-        detectedId = "base_one_generator";
-      }
-      // Base One Water Pump Check (x: 287, y: 127)
-      else if (Math.hypot(playerPos.x - 287, playerPos.y - 127) < 40) {
-        detectedPrompt = "[E] Collect Purified Water Rations";
-        detectedId = "base_one_water";
-      }
-      // Substation Check (x: 560, y: 440)
-      else if (Math.hypot(playerPos.x - 560, playerPos.y - 440) < 45) {
-        if (!worldState.substationPowerOnline) {
-          detectedPrompt = "[E] Restore Power Grid Link to Pharmacy";
-        } else {
-          detectedPrompt = "[E] Substation Grid Power ONLINE";
-        }
-        detectedId = "substation_power_link";
-      }
-      // Pharmacy Cache Check (x: 520, y: 125)
-      else if (Math.hypot(playerPos.x - 520, playerPos.y - 125) < 40) {
-        if (!worldState.substationPowerOnline) {
-          detectedPrompt = "[E] Storage Cache LOCKED (Requires Substation Power)";
-        } else if (!worldState.pharmacySearched) {
-          detectedPrompt = "[E] Search Medicine Cache";
-        } else {
-          detectedPrompt = "[E] Medicine Cache EMPTY";
-        }
-        detectedId = "pharmacy_locker";
-      }
-      // Pharmacy Evidence Check (x: 610, y: 130)
-      else if (Math.hypot(playerPos.x - 610, playerPos.y - 130) < 40) {
-        if (!worldState.evidenceCollected) {
-          detectedPrompt = "[E] Inspect Pharmacist's Emergency Note";
-          detectedId = "pharmacy_evidence";
-        }
-      }
-
-      setCurrentPrompt(detectedPrompt);
-      setActiveInteractableId(detectedId);
-
-      animationFrameId = requestAnimationFrame(gameLoop);
-    };
-
-    animationFrameId = requestAnimationFrame(gameLoop);
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [playerPos, isCrouching, worldState]);
-
   return (
-    <div className="relative w-full h-[600px] bg-slate-950 border border-emerald-900/40 rounded-xl overflow-hidden shadow-2xl flex flex-col justify-center items-center">
-      {/* 2.5D Interactive 3D Canvas */}
-      <canvas
-        ref={canvasRef}
-        width={780}
-        height={560}
-        className="w-full h-full block bg-slate-950 cursor-crosshair"
-      />
+    <div className="relative w-full h-[600px] bg-slate-950 border border-emerald-900/40 rounded-xl overflow-hidden shadow-2xl">
+      {/* 3D WebGL Three.js Render Viewport */}
+      <div ref={containerRef} className="w-full h-full block bg-slate-950 cursor-crosshair" />
 
-      {/* Floating Interaction Prompt */}
+      {/* Floating 3D Interaction Prompt */}
       {currentPrompt && (
-        <div className="absolute top-6 bg-slate-900/90 border border-emerald-500/50 text-emerald-400 font-mono text-xs px-4 py-2 rounded-lg shadow-xl animate-bounce flex items-center gap-2">
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-slate-900/90 border border-emerald-500/50 text-emerald-400 font-mono text-xs px-4 py-2 rounded-lg shadow-xl animate-bounce flex items-center gap-2 z-20">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
           {currentPrompt}
         </div>
       )}
 
-      {/* HUD Overlays & Controls Bar */}
-      <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none">
+      {/* Controls Bar & Position HUD */}
+      <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none z-20">
         <div className="bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg text-slate-300 font-mono text-xs flex items-center gap-3">
-          <span>Pos: ({Math.round(playerPos.x)}, {Math.round(playerPos.y)})</span>
+          <span>3D Coordinates: ({playerCoords.x}m, {playerCoords.z}m)</span>
           <span className={isRunning ? "text-emerald-400 font-bold" : "text-slate-500"}>RUN</span>
           <span className={isCrouching ? "text-amber-400 font-bold" : "text-slate-500"}>CROUCH</span>
         </div>
 
         <button
           onClick={() => setShowJournal(true)}
-          className="pointer-events-auto bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-mono px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2"
+          className="pointer-events-auto bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-mono px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2 shadow-lg"
         >
           <span>Inventory & Journal (Tab)</span>
           {journal.length > 0 && (
@@ -437,8 +492,8 @@ export default function UnityCanvas({
         </button>
       </div>
 
-      {/* Action Log Box */}
-      <div className="absolute top-4 left-4 max-w-sm pointer-events-none space-y-1">
+      {/* Action Log Overlay */}
+      <div className="absolute top-4 left-4 max-w-sm pointer-events-none space-y-1 z-20">
         {actionLog.map((log, index) => (
           <div
             key={index}
@@ -449,7 +504,7 @@ export default function UnityCanvas({
         ))}
       </div>
 
-      {/* Inventory & Journal Modal Overlay */}
+      {/* Inventory & Journal Modal */}
       {showJournal && (
         <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex justify-center items-center p-6 z-50">
           <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
@@ -481,7 +536,7 @@ export default function UnityCanvas({
               </div>
             </div>
 
-            {/* Evidence Journal Entries */}
+            {/* Discovered Evidence Notes */}
             <div>
               <h4 className="text-xs font-mono text-amber-400 mb-2 uppercase">Discovered Evidence</h4>
               {journal.length === 0 ? (
