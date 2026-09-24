@@ -4,8 +4,8 @@ PROJECT: LAST CITY
 GAME GENRE: 3D Survival Strategy / Narrative RPG / City Builder
 CORE FANTASY: Build a city. Shape its people. Decide what humanity becomes.
 
-CURRENT DEVELOPMENT PHASE: Phase 5 — Strategic & Physical Resource Economy
-CURRENT VERSION: 0.5.0
+CURRENT DEVELOPMENT PHASE: Phase 6 — Construction & Settlement Expansion
+CURRENT VERSION: 0.6.0
 
 CURRENT WORKING FEATURES:
 - Master Build Prompt v2.0 & Story Canon ingested into `/docs`.
@@ -34,6 +34,9 @@ CURRENT WORKING FEATURES:
   - `ResourceDefinition.cs` (Physical: Food, Water, Medicine, Scrap, Fuel & Strategic: Knowledge, Trust)
   - `EconomyEngine.cs` (Deterministic hourly resource calculation engine)
   - `ResourceManager.cs` (Master resource bank ledger with event notifications)
+  - `BuildingDefinition.cs` (Building footprints, metrics, costs, and worker capacities)
+  - `ConstructionSite.cs` (Staged visual construction pipeline: Blueprint → Scaffolding → Framing → Complete)
+  - `BuildingManager.cs` (7 visual settlement progression stages: Shelter → Camp → Settlement → Community → Town → City → Civilization)
 
 CURRENT BROKEN FEATURES:
 - None (Scaffolding stage).

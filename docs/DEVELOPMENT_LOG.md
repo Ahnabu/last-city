@@ -118,4 +118,21 @@
 - **What Was Implemented:** Fully created the Phase 5 resource economy engine: deterministic calculation engine (`EconomyEngine.CalculateHourlyTick`), master resource bank ledger with event hooks (`ResourceManager`), and real-time physical/strategic resource status HUD meters in the web shell.
 - **What Was Tested:** Next.js build compilation verified (`0 errors`); git commit and push completed (`e38df6f`).
 - **Result:** Phase 5 Strategic Resource Economy completed and pushed to `origin/main`.
-- **Next Step:** Phase 6 — Construction & Settlement Expansion (Blueprint Placement, Resource Reservation, Staged 3D Building Progress).
+- **Next Step:** Implement Phase 6 Construction & Settlement Expansion pipeline, building definitions, staged 3D construction site, and 7-stage settlement progression.
+
+---
+
+## Entry 007 — 2026-09-24
+
+- **Phase:** Phase 6 — Construction & Settlement Expansion
+- **Task:** Construction Systems (BuildingDefinition, ConstructionSite, BuildingManager, 3D Greenhouse Site)
+- **Files Changed:**
+  - Created [`game/Unity/Assets/Scripts/Buildings/BuildingDefinition.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/Buildings/BuildingDefinition.cs) (Building footprints, metrics, costs, and worker capacities)
+  - Created [`game/Unity/Assets/Scripts/Buildings/ConstructionSite.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/Buildings/ConstructionSite.cs) (Staged visual construction pipeline: Blueprint → Scaffolding → Framing → Complete)
+  - Created [`game/Unity/Assets/Scripts/Buildings/BuildingManager.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/Buildings/BuildingManager.cs) (7 visual settlement progression stages: Shelter → Camp → Settlement → Community → Town → City → Civilization)
+  - Updated [`web/src/components/UnityCanvas.tsx`](file:///d:/Last%20city/web/src/components/UnityCanvas.tsx) (3D Hydroponic Greenhouse construction site with staged work contribution and settlement stage advancement)
+- **Systems Changed:** Settlement Construction Pipeline, Building Ledger, Settlement Visual Stage Advancement.
+- **What Was Implemented:** Fully created the Phase 6 construction pipeline: building metrics data structures, staged 3D visual construction sites (`Blueprint` $\rightarrow$ `Scaffolding` $\rightarrow$ `Framing` $\rightarrow$ `Completed`), interactive work contribution prompts, and `BuildingManager` tracking the 7-stage settlement visual growth loop.
+- **What Was Tested:** Next.js build compilation verified (`0 errors`); git commit and push completed (`d225f58`).
+- **Result:** Phase 6 Construction & Settlement Expansion completed and pushed to `origin/main`.
+- **Next Step:** Phase 7 — Time & Weather Systems (Day/Night cycle, dynamic lighting, rain/fog/storm weather states, NPC reactivity).
