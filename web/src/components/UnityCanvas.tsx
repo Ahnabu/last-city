@@ -19,7 +19,7 @@ export default function UnityCanvas({
   const [insideLocation, setInsideLocation] = useState<string | null>(null);
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(null);
 
-  // Persistent Player 3D Position Ref (Prevents position resets on state changes!)
+  // Persistent Player 3D Position Ref
   const playerPosRef = useRef({ x: 0, z: 12, angle: 0 });
   const isCrouchingRef = useRef(false);
   isCrouchingRef.current = isCrouching;
@@ -41,8 +41,6 @@ export default function UnityCanvas({
   const [inventory, setInventory] = useState<Array<{ id: string; name: string; count: number }>>([
     { id: "item_scrap_metal", name: "Scrap Metal", count: 3 },
   ]);
-  const inventoryRef = useRef(inventory);
-  inventoryRef.current = inventory;
 
   const [journal, setJournal] = useState<Array<{ id: string; title: string; content: string; location: string }>>([]);
   const journalRef = useRef(journal);
@@ -51,7 +49,7 @@ export default function UnityCanvas({
   const [showJournal, setShowJournal] = useState(false);
   const [actionLog, setActionLog] = useState<string[]>([
     "Coordinator awake at Base One exterior.",
-    "System: Approach Base One doorway and press E to open the door and explore interiors!",
+    "Survivors in vicinity: Mira (Engineer) at Base One, Elias at Substation.",
   ]);
 
   const keysPressed = useRef<{ [key: string]: boolean }>({});
@@ -92,7 +90,6 @@ export default function UnityCanvas({
     sunLight.shadow.mapSize.height = 2048;
     scene.add(sunLight);
 
-    // Interior Point Lights
     const baseOneIntLight = new THREE.PointLight(0x10b981, 0, 15);
     baseOneIntLight.position.set(-12, 3, -12);
     scene.add(baseOneIntLight);
@@ -129,7 +126,7 @@ export default function UnityCanvas({
     road.receiveShadow = true;
     scene.add(road);
 
-    // --- 4. BUILDING 1: BASE ONE (18m × 14m × 4m) ---
+    // --- 4. BASE ONE BUILDING & INTERIOR ---
     const baseOneGroup = new THREE.Group();
     baseOneGroup.position.set(-12, 0, -12);
 
@@ -159,7 +156,6 @@ export default function UnityCanvas({
     createWall(0.4, 3.5, 8, -2, 1.75, -3);
     createWall(8, 3.5, 0.4, 4, 1.75, -1);
 
-    // Dynamic Transparent Roof
     const b1RoofGeo = new THREE.BoxGeometry(18.4, 0.3, 14.4);
     const b1RoofMat = new THREE.MeshStandardMaterial({
       color: 0x059669,
@@ -171,7 +167,6 @@ export default function UnityCanvas({
     b1Roof.position.set(0, 3.65, 0);
     baseOneGroup.add(b1Roof);
 
-    // 3D Door Mesh
     const doorGroup = new THREE.Group();
     doorGroup.position.set(-2, 0, 7);
     const doorGeo = new THREE.BoxGeometry(4, 3.0, 0.3);
@@ -182,28 +177,24 @@ export default function UnityCanvas({
     doorGroup.add(doorMesh);
     baseOneGroup.add(doorGroup);
 
-    // Generator Turbine Mesh
     const genGeo = new THREE.CylinderGeometry(1.2, 1.2, 2.2, 16);
     const genMat = new THREE.MeshStandardMaterial({ color: 0x059669, metalness: 0.8 });
     const genMesh = new THREE.Mesh(genGeo, genMat);
     genMesh.position.set(-6, 1.1, -4);
     baseOneGroup.add(genMesh);
 
-    // Water Pump Mesh
     const pumpGeo = new THREE.BoxGeometry(1.8, 2.2, 1.8);
     const pumpMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.6 });
     const pumpMesh = new THREE.Mesh(pumpGeo, pumpMat);
     pumpMesh.position.set(-6, 1.1, 3);
     baseOneGroup.add(pumpMesh);
 
-    // Radio Room Console Mesh
     const radioGeo = new THREE.BoxGeometry(2.5, 1.2, 1.5);
     const radioMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, emissive: 0x0369a1 });
     const radioMesh = new THREE.Mesh(radioGeo, radioMat);
     radioMesh.position.set(5, 0.6, -4);
     baseOneGroup.add(radioMesh);
 
-    // Bunks
     for (let i = 0; i < 3; i++) {
       const bunkGeo = new THREE.BoxGeometry(1.8, 1.4, 3.2);
       const bunkMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
@@ -214,7 +205,7 @@ export default function UnityCanvas({
 
     scene.add(baseOneGroup);
 
-    // --- 5. BUILDING 2: PHARMACY (10m × 8m × 3.5m) ---
+    // --- 5. PHARMACY BUILDING ---
     const pharmacyGroup = new THREE.Group();
     pharmacyGroup.position.set(18, 0, -12);
 
@@ -249,7 +240,7 @@ export default function UnityCanvas({
 
     scene.add(pharmacyGroup);
 
-    // --- 6. BUILDING 3: ELECTRICAL SUBSTATION (14m × 10m × 3.5m) ---
+    // --- 6. ELECTRICAL SUBSTATION ---
     const subGroup = new THREE.Group();
     subGroup.position.set(18, 0, 14);
 
@@ -278,7 +269,40 @@ export default function UnityCanvas({
 
     scene.add(subGroup);
 
-    // --- 7. 3D PLAYER (THE COORDINATOR) ---
+    // --- 7. 3D SURVIVORS (PHASE 4 SURVIVOR AI SIMULATION) ---
+    // 3D Survivor 1: MIRA (Base One Engineer)
+    const miraGroup = new THREE.Group();
+    miraGroup.position.set(-15, 0, -14); // Stationed in Base One Generator Room
+
+    const miraGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.7, 16);
+    const miraMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.3 }); // Engineer Amber
+    const miraMesh = new THREE.Mesh(miraGeo, miraMat);
+    miraMesh.position.y = 0.85;
+    miraMesh.castShadow = true;
+    miraGroup.add(miraMesh);
+
+    const miraVisorGeo = new THREE.BoxGeometry(0.45, 0.2, 0.35);
+    const miraVisorMat = new THREE.MeshStandardMaterial({ color: 0xfef08a });
+    const miraVisor = new THREE.Mesh(miraVisorGeo, miraVisorMat);
+    miraVisor.position.set(0, 1.45, 0.3);
+    miraGroup.add(miraVisor);
+
+    scene.add(miraGroup);
+
+    // 3D Survivor 2: ELIAS (Substation Specialist)
+    const eliasGroup = new THREE.Group();
+    eliasGroup.position.set(18, 0, 12); // Stationed at Substation
+
+    const eliasGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.7, 16);
+    const eliasMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3 }); // Specialist Blue
+    const eliasMesh = new THREE.Mesh(eliasGeo, eliasMat);
+    eliasMesh.position.y = 0.85;
+    eliasMesh.castShadow = true;
+    eliasGroup.add(eliasMesh);
+
+    scene.add(eliasGroup);
+
+    // --- 8. 3D PLAYER (THE COORDINATOR) ---
     const playerGroup = new THREE.Group();
     playerGroup.position.set(playerPosRef.current.x, 0, playerPosRef.current.z);
 
@@ -314,14 +338,22 @@ export default function UnityCanvas({
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
 
-    // Interaction Trigger Handler (Uses refs to avoid re-mounting scene!)
+    // Interaction Trigger Handler
     const handleInteractTrigger = () => {
       const px = playerPosRef.current.x;
       const pz = playerPosRef.current.z;
       const curWorldState = worldStateRef.current;
 
+      // Talk to Mira
+      if (Math.hypot(px - (-15), pz - (-14)) < 3.5) {
+        logAction("Mira (Engineer): 'The Base One generator grid is fragile... Keep scrap metal handy to maintain power!'");
+      }
+      // Talk to Elias
+      else if (Math.hypot(px - 18, pz - 12) < 3.5) {
+        logAction("Elias (Substation Specialist): 'If we restore Node 17, the automated grid will unlock district caches.'");
+      }
       // Base One Door
-      if (Math.hypot(px - (-14), pz - (-5)) < 3.5) {
+      else if (Math.hypot(px - (-14), pz - (-5)) < 3.5) {
         const nextState = !curWorldState.baseOneDoorOpen;
         doorMesh.material.color.setHex(nextState ? 0x10b981 : 0xef4444);
         doorGroup.rotation.y = nextState ? Math.PI / 2 : 0;
@@ -368,7 +400,7 @@ export default function UnityCanvas({
         }
       }
       // Substation Check
-      else if (Math.hypot(px - 18, pz - 12) < 4.0) {
+      else if (Math.hypot(px - 18, pz - 14) < 4.0) {
         if (!curWorldState.substationPowerOnline) {
           linkMesh.material.color.setHex(0x38bdf8);
           subIntLight.color.setHex(0x38bdf8);
@@ -410,12 +442,11 @@ export default function UnityCanvas({
       }
     };
 
-    // 60 FPS Engine Animation Loop (Continuous, never re-instantiated!)
+    // 60 FPS Render Loop
     let animId: number;
     const animate = () => {
       animId = requestAnimationFrame(animate);
 
-      // WASD Movement
       let moveX = 0;
       let moveZ = 0;
 
@@ -451,7 +482,7 @@ export default function UnityCanvas({
       const px = playerGroup.position.x;
       const pz = playerGroup.position.z;
 
-      // Interior Roof Opacity Cutout
+      // Interior Roof Fade-Out & Location Sensing
       const isInsideBaseOne = px >= -21 && px <= -3 && pz >= -19 && pz <= -5;
       const isInsidePharmacy = px >= 13 && px <= 23 && pz >= -16 && pz <= -8;
       const isInsideSubstation = px >= 11 && px <= 25 && pz >= 9 && pz <= 19;
@@ -460,9 +491,9 @@ export default function UnityCanvas({
       pharmRoofMat.opacity = isInsidePharmacy ? 0.1 : 0.9;
       subRoofMat.opacity = isInsideSubstation ? 0.1 : 0.9;
 
-      if (isInsideBaseOne) setInsideLocation("BASE ONE INTERIOR (Quarters, Generator, Radio Room)");
-      else if (isInsidePharmacy) setInsideLocation("PHARMACY INTERIOR (Store Floor & Storage)");
-      else if (isInsideSubstation) setInsideLocation("SUBSTATION INTERIOR (Control Room)");
+      if (isInsideBaseOne) setInsideLocation("BASE ONE INTERIOR (Mira active at Generator)");
+      else if (isInsidePharmacy) setInsideLocation("PHARMACY INTERIOR (Retail & Storage)");
+      else if (isInsideSubstation) setInsideLocation("SUBSTATION INTERIOR (Elias active at Control Box)");
       else setInsideLocation(null);
 
       // Camera Follow
@@ -471,11 +502,15 @@ export default function UnityCanvas({
       camera.position.set(px, playerGroup.position.y + camY, pz + camZ);
       camera.lookAt(px, playerGroup.position.y + 1, pz);
 
-      // Interaction Prompts Sensing
+      // Interaction Prompts
       const curWorldState = worldStateRef.current;
       let prompt: string | null = null;
 
-      if (Math.hypot(px - (-14), pz - (-5)) < 3.5) {
+      if (Math.hypot(px - (-15), pz - (-14)) < 3.5) {
+        prompt = "[E] Talk to Mira (Base One Engineer)";
+      } else if (Math.hypot(px - 18, pz - 12) < 3.5) {
+        prompt = "[E] Talk to Elias (Substation Specialist)";
+      } else if (Math.hypot(px - (-14), pz - (-5)) < 3.5) {
         prompt = `[E] ${curWorldState.baseOneDoorOpen ? "Close" : "Open"} Base One Door`;
       } else if (Math.hypot(px - (-18), pz - (-16)) < 3.5) {
         prompt = curWorldState.baseOneGeneratorRepaired
@@ -485,7 +520,7 @@ export default function UnityCanvas({
         prompt = "[E] Collect Purified Water Rations (+2)";
       } else if (Math.hypot(px - (-7), pz - (-16)) < 3.5) {
         prompt = "[E] Tune Emergency Radio (Node 17 Transmission)";
-      } else if (Math.hypot(px - 18, pz - 12) < 4.0) {
+      } else if (Math.hypot(px - 18, pz - 14) < 4.0) {
         prompt = curWorldState.substationPowerOnline
           ? "[E] Substation Grid Power ONLINE"
           : "[E] Restore Substation Power Link to Pharmacy";
@@ -525,14 +560,12 @@ export default function UnityCanvas({
         container.removeChild(renderer.domElement);
       }
     };
-  }, []); // [] dependency array ensures Three.js 3D Engine initializes ONCE on mount!
+  }, []);
 
   return (
     <div className="relative w-full h-[600px] bg-slate-950 border border-emerald-900/40 rounded-xl overflow-hidden shadow-2xl">
-      {/* 3D WebGL Three.js Render Viewport */}
       <div ref={containerRef} className="w-full h-full block bg-slate-950 cursor-crosshair" />
 
-      {/* Floating 3D Interaction Prompt */}
       {currentPrompt && (
         <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-slate-900/95 border border-emerald-500/60 text-emerald-400 font-mono text-xs px-4 py-2 rounded-lg shadow-xl animate-bounce flex items-center gap-2 z-20">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
@@ -540,7 +573,6 @@ export default function UnityCanvas({
         </div>
       )}
 
-      {/* Location Badge */}
       {insideLocation && (
         <div className="absolute top-6 right-6 bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-mono text-xs px-3 py-1.5 rounded-lg shadow-lg flex items-center gap-2 z-20">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -548,7 +580,6 @@ export default function UnityCanvas({
         </div>
       )}
 
-      {/* Controls Bar & Position HUD */}
       <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none z-20">
         <div className="bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg text-slate-300 font-mono text-xs flex items-center gap-3">
           <span>3D Position: ({playerCoords.x}m, {playerCoords.z}m)</span>
@@ -569,7 +600,6 @@ export default function UnityCanvas({
         </button>
       </div>
 
-      {/* Action Log Overlay */}
       <div className="absolute top-4 left-4 max-w-sm pointer-events-none space-y-1 z-20">
         {actionLog.map((log, index) => (
           <div
@@ -581,7 +611,6 @@ export default function UnityCanvas({
         ))}
       </div>
 
-      {/* Inventory & Journal Modal */}
       {showJournal && (
         <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex justify-center items-center p-6 z-50">
           <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
@@ -597,7 +626,6 @@ export default function UnityCanvas({
               </button>
             </div>
 
-            {/* Inventory List */}
             <div>
               <h4 className="text-xs font-mono text-emerald-400 mb-2 uppercase">Items Storage</h4>
               <div className="grid grid-cols-2 gap-2">
@@ -613,7 +641,6 @@ export default function UnityCanvas({
               </div>
             </div>
 
-            {/* Discovered Evidence Notes */}
             <div>
               <h4 className="text-xs font-mono text-amber-400 mb-2 uppercase">Discovered Evidence</h4>
               {journal.length === 0 ? (
