@@ -1,0 +1,34 @@
+# Environment & Secret Files
+.env
+.env.local
+.env.*.local
+*.pem
+*.p12
+
+# Node & Next.js
+web/node_modules/
+web/.next/
+web/out/
+web/build/
+web/.vercel/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Unity Artifacts & Temp Folders
+game/Unity/Library/
+game/Unity/Temp/
+game/Unity/Obj/
+game/Unity/Build/
+game/Unity/Builds/
+game/Unity/Logs/
+game/Unity/MemoryCaptures/
+game/Unity/UserSettings/
+game/Unity/Assets/StreamingAssets/aa/
+game/Unity/.vs/
+game/Unity/.idea/
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
