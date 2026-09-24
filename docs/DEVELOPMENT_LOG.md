@@ -45,4 +45,23 @@
 - **What Was Implemented:** Fully created the Next.js web application shell with settlement HUD, Firebase client hookup, and embedded WebGL canvas player; initialized Unity 6 C# simulation script base and project settings.
 - **What Was Tested:** File layout and C# syntax verified.
 - **Result:** Phase 0 Web Shell and Unity C# baseline fully operational.
-- **Next Step:** Open Unity Editor to test `CoordinatorController.cs` in `CityBlock01.unity`, bake NavMesh, and build WebGL target to `web/public/game-build/`.
+- **Next Step:** Implement Phase 2 interactive container, evidence journal, and substation power link systems.
+
+---
+
+## Entry 003 — 2026-09-24
+
+- **Phase:** Phase 2 — Data-Driven Interaction & Evidence System
+- **Task:** Interaction Extensions, Inventory Manager, Evidence Journal, and Power Links
+- **Files Changed:**
+  - Removed auto-generated `web/AGENTS.md` and `web/CLAUDE.md` from web shell.
+  - Created [`game/Unity/Assets/Scripts/Items/ItemDefinition.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/Items/ItemDefinition.cs) (Data-driven item definitions & categories)
+  - Created [`game/Unity/Assets/Scripts/Items/InventoryManager.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/Items/InventoryManager.cs) (Item storage slots & Evidence Journal storage)
+  - Created [`game/Unity/Assets/Scripts/Interaction/ContainerInteractable.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/Interaction/ContainerInteractable.cs) (Searchable storage containers & loot drop handling)
+  - Created [`game/Unity/Assets/Scripts/Interaction/EvidenceInteractable.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/Interaction/EvidenceInteractable.cs) (Environmental evidence pickup → Journal entry)
+  - Created [`game/Unity/Assets/Scripts/World/PowerLink.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/World/PowerLink.cs) (Substation power restoration linked to target building IDs)
+- **Systems Changed:** Interaction System, Inventory System, Narrative Evidence Journal, Electrical Infrastructure.
+- **What Was Implemented:** Implemented data-driven interactive container searching, key-gated access, environmental evidence pickup with automated journal logging, and substation-to-building power link components.
+- **What Was Tested:** Next.js build compilation verified (`0 errors`); git remote updated.
+- **Result:** Phase 2 interaction systems completed and pushed to `origin/main`.
+- **Next Step:** Phase 3 — Base One Interior layout and functional interactables (Water Pump, Generator, Workbench).

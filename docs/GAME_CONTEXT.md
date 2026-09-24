@@ -4,8 +4,8 @@ PROJECT: LAST CITY
 GAME GENRE: 3D Survival Strategy / Narrative RPG / City Builder
 CORE FANTASY: Build a city. Shape its people. Decide what humanity becomes.
 
-CURRENT DEVELOPMENT PHASE: Phase 1 — 3D Foundation & Walkable Scene
-CURRENT VERSION: 0.1.0
+CURRENT DEVELOPMENT PHASE: Phase 2 — Data-Driven Interaction & Evidence System
+CURRENT VERSION: 0.2.0
 
 CURRENT WORKING FEATURES:
 - Master Build Prompt v2.0 & Story Canon ingested into `/docs`.
@@ -18,6 +18,10 @@ CURRENT WORKING FEATURES:
   - `CoordinatorController.cs` (Third-person walk/run/crouch movement & raycast interaction)
   - `ThirdPersonCamera.cs` (Exploration target follow camera)
   - `IInteractable.cs` & `DoorInteractable.cs` (Core interaction contracts)
+  - `ContainerInteractable.cs` (Searchable containers, keys, loot tables)
+  - `EvidenceInteractable.cs` (Environmental evidence pickup → Journal log)
+  - `InventoryManager.cs` (Item storage slots & Evidence Journal storage)
+  - `PowerLink.cs` (Substation power restoration linked to target building IDs)
 
 CURRENT BROKEN FEATURES:
 - None (Scaffolding stage).
