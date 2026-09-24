@@ -24,7 +24,7 @@ export default function UnityCanvas({
   const isCrouchingRef = useRef(false);
   isCrouchingRef.current = isCrouching;
 
-  // Game World & Infrastructure State
+  // Game World & Construction State
   const [worldState, setWorldState] = useState({
     baseOneDoorOpen: false,
     baseOneGeneratorRepaired: false,
@@ -32,7 +32,9 @@ export default function UnityCanvas({
     substationPowerOnline: false,
     pharmacySearched: false,
     evidenceCollected: false,
-    waterCount: 0,
+    greenhouseProgress: 0, // 0 to 100%
+    greenhouseCompleted: false,
+    settlementStage: "Stage 1: Shelter",
   });
 
   const worldStateRef = useRef(worldState);
@@ -49,7 +51,7 @@ export default function UnityCanvas({
   const [showJournal, setShowJournal] = useState(false);
   const [actionLog, setActionLog] = useState<string[]>([
     "Coordinator awake at Base One exterior.",
-    "Survivors in vicinity: Mira (Engineer) at Base One, Elias at Substation.",
+    "Construction Blueprint Available: Hydroponic Greenhouse site at X: -15, Z: 14.",
   ]);
 
   const keysPressed = useRef<{ [key: string]: boolean }>({});
@@ -58,7 +60,7 @@ export default function UnityCanvas({
     setActionLog((prev) => [msg, ...prev.slice(0, 4)]);
   };
 
-  // 3D Three.js Engine Setup & Render Loop (Runs ONCE on Mount!)
+  // 3D Three.js Engine Setup & Render Loop
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -94,14 +96,6 @@ export default function UnityCanvas({
     baseOneIntLight.position.set(-12, 3, -12);
     scene.add(baseOneIntLight);
 
-    const baseOneRadioLight = new THREE.PointLight(0x38bdf8, 0.8, 10);
-    baseOneRadioLight.position.set(-6, 2.5, -16);
-    scene.add(baseOneRadioLight);
-
-    const pharmIntLight = new THREE.PointLight(0xfef08a, 0.8, 12);
-    pharmIntLight.position.set(15, 2.8, -12);
-    scene.add(pharmIntLight);
-
     const subIntLight = new THREE.PointLight(0xf59e0b, 1.0, 12);
     subIntLight.position.set(15, 2.8, 14);
     scene.add(subIntLight);
@@ -126,7 +120,7 @@ export default function UnityCanvas({
     road.receiveShadow = true;
     scene.add(road);
 
-    // --- 4. BASE ONE BUILDING & INTERIOR ---
+    // --- 4. BASE ONE BUILDING ---
     const baseOneGroup = new THREE.Group();
     baseOneGroup.position.set(-12, 0, -12);
 
@@ -189,20 +183,6 @@ export default function UnityCanvas({
     pumpMesh.position.set(-6, 1.1, 3);
     baseOneGroup.add(pumpMesh);
 
-    const radioGeo = new THREE.BoxGeometry(2.5, 1.2, 1.5);
-    const radioMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, emissive: 0x0369a1 });
-    const radioMesh = new THREE.Mesh(radioGeo, radioMat);
-    radioMesh.position.set(5, 0.6, -4);
-    baseOneGroup.add(radioMesh);
-
-    for (let i = 0; i < 3; i++) {
-      const bunkGeo = new THREE.BoxGeometry(1.8, 1.4, 3.2);
-      const bunkMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
-      const bunkMesh = new THREE.Mesh(bunkGeo, bunkMat);
-      bunkMesh.position.set(3.5, 0.7, 1 + i * 2.2);
-      baseOneGroup.add(bunkMesh);
-    }
-
     scene.add(baseOneGroup);
 
     // --- 5. PHARMACY BUILDING ---
@@ -226,21 +206,9 @@ export default function UnityCanvas({
     pharmRoof.position.set(0, 3.65, 0);
     pharmacyGroup.add(pharmRoof);
 
-    const cacheGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
-    const cacheMat = new THREE.MeshStandardMaterial({ color: 0x0284c7 });
-    const cacheMesh = new THREE.Mesh(cacheGeo, cacheMat);
-    cacheMesh.position.set(-2.5, 0.75, -1.5);
-    pharmacyGroup.add(cacheMesh);
-
-    const noteGeo = new THREE.BoxGeometry(0.8, 0.1, 1.0);
-    const noteMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706 });
-    const noteMesh = new THREE.Mesh(noteGeo, noteMat);
-    noteMesh.position.set(2.5, 0.8, -1.5);
-    pharmacyGroup.add(noteMesh);
-
     scene.add(pharmacyGroup);
 
-    // --- 6. ELECTRICAL SUBSTATION ---
+    // --- 6. SUBSTATION BUILDING ---
     const subGroup = new THREE.Group();
     subGroup.position.set(18, 0, 14);
 
@@ -261,46 +229,28 @@ export default function UnityCanvas({
     subRoof.position.set(0, 3.65, 0);
     subGroup.add(subRoof);
 
-    const linkGeo = new THREE.BoxGeometry(1.8, 2.5, 1.8);
-    const linkMat = new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x047857 });
-    const linkMesh = new THREE.Mesh(linkGeo, linkMat);
-    linkMesh.position.set(0, 1.25, -2);
-    subGroup.add(linkMesh);
-
     scene.add(subGroup);
 
-    // --- 7. 3D SURVIVORS (PHASE 4 SURVIVOR AI SIMULATION) ---
-    // 3D Survivor 1: MIRA (Base One Engineer)
-    const miraGroup = new THREE.Group();
-    miraGroup.position.set(-15, 0, -14); // Stationed in Base One Generator Room
+    // --- 7. PHASE 6: 3D CONSTRUCTION SITE (HYDROPONIC GREENHOUSE) ---
+    const buildSiteGroup = new THREE.Group();
+    buildSiteGroup.position.set(-15, 0, 14);
 
-    const miraGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.7, 16);
-    const miraMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.3 }); // Engineer Amber
-    const miraMesh = new THREE.Mesh(miraGeo, miraMat);
-    miraMesh.position.y = 0.85;
-    miraMesh.castShadow = true;
-    miraGroup.add(miraMesh);
+    // 0% Scaffolding Poles Mesh
+    const scaffoldGeo = new THREE.BoxGeometry(10, 0.2, 8);
+    const scaffoldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, wireframe: true });
+    const scaffoldMesh = new THREE.Mesh(scaffoldGeo, scaffoldMat);
+    scaffoldMesh.position.y = 0.1;
+    buildSiteGroup.add(scaffoldMesh);
 
-    const miraVisorGeo = new THREE.BoxGeometry(0.45, 0.2, 0.35);
-    const miraVisorMat = new THREE.MeshStandardMaterial({ color: 0xfef08a });
-    const miraVisor = new THREE.Mesh(miraVisorGeo, miraVisorMat);
-    miraVisor.position.set(0, 1.45, 0.3);
-    miraGroup.add(miraVisor);
+    // 100% Completed Greenhouse Structure Mesh
+    const greenhouseGeo = new THREE.BoxGeometry(10, 3.2, 8);
+    const greenhouseMat = new THREE.MeshStandardMaterial({ color: 0x10b981, transparent: true, opacity: 0.6 });
+    const greenhouseMesh = new THREE.Mesh(greenhouseGeo, greenhouseMat);
+    greenhouseMesh.position.y = 1.6;
+    greenhouseMesh.visible = false;
+    buildSiteGroup.add(greenhouseMesh);
 
-    scene.add(miraGroup);
-
-    // 3D Survivor 2: ELIAS (Substation Specialist)
-    const eliasGroup = new THREE.Group();
-    eliasGroup.position.set(18, 0, 12); // Stationed at Substation
-
-    const eliasGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.7, 16);
-    const eliasMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3 }); // Specialist Blue
-    const eliasMesh = new THREE.Mesh(eliasGeo, eliasMat);
-    eliasMesh.position.y = 0.85;
-    eliasMesh.castShadow = true;
-    eliasGroup.add(eliasMesh);
-
-    scene.add(eliasGroup);
+    scene.add(buildSiteGroup);
 
     // --- 8. 3D PLAYER (THE COORDINATOR) ---
     const playerGroup = new THREE.Group();
@@ -313,15 +263,9 @@ export default function UnityCanvas({
     playerCapsule.castShadow = true;
     playerGroup.add(playerCapsule);
 
-    const visorGeo = new THREE.BoxGeometry(0.5, 0.25, 0.4);
-    const visorMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, emissive: 0x0284c7 });
-    const visorMesh = new THREE.Mesh(visorGeo, visorMat);
-    visorMesh.position.set(0, 1.45, 0.35);
-    playerGroup.add(visorMesh);
-
     scene.add(playerGroup);
 
-    // Keyboard Listeners
+    // Keyboard Input Listeners
     const onKeyDown = (e: KeyboardEvent) => {
       keysPressed.current[e.key.toLowerCase()] = true;
       if (e.key.toLowerCase() === "c") setIsCrouching((p) => !p);
@@ -344,20 +288,35 @@ export default function UnityCanvas({
       const pz = playerPosRef.current.z;
       const curWorldState = worldStateRef.current;
 
-      // Talk to Mira
-      if (Math.hypot(px - (-15), pz - (-14)) < 3.5) {
-        logAction("Mira (Engineer): 'The Base One generator grid is fragile... Keep scrap metal handy to maintain power!'");
-      }
-      // Talk to Elias
-      else if (Math.hypot(px - 18, pz - 12) < 3.5) {
-        logAction("Elias (Substation Specialist): 'If we restore Node 17, the automated grid will unlock district caches.'");
+      // Construction Site Interaction
+      if (Math.hypot(px - (-15), pz - 14) < 4.5) {
+        if (!curWorldState.greenhouseCompleted) {
+          const nextProgress = Math.min(100, curWorldState.greenhouseProgress + 25);
+          const isDone = nextProgress >= 100;
+
+          if (isDone) {
+            scaffoldMesh.visible = false;
+            greenhouseMesh.visible = true;
+            logAction("Greenhouse Construction COMPLETED! Settlement Stage advanced to Stage 2: Camp (+4 Food).");
+            setWorldState((prev) => ({
+              ...prev,
+              greenhouseProgress: 100,
+              greenhouseCompleted: true,
+              settlementStage: "Stage 2: Camp",
+            }));
+          } else {
+            scaffoldMesh.scale.y = 1 + (nextProgress / 100) * 2;
+            logAction(`Contributed work to Greenhouse construction: ${nextProgress}% complete.`);
+            setWorldState((prev) => ({ ...prev, greenhouseProgress: nextProgress }));
+          }
+        }
       }
       // Base One Door
       else if (Math.hypot(px - (-14), pz - (-5)) < 3.5) {
         const nextState = !curWorldState.baseOneDoorOpen;
         doorMesh.material.color.setHex(nextState ? 0x10b981 : 0xef4444);
         doorGroup.rotation.y = nextState ? Math.PI / 2 : 0;
-        logAction(`Base One Door ${nextState ? "OPENED" : "CLOSED"}. Walk inside to explore interior rooms!`);
+        logAction(`Base One Door ${nextState ? "OPENED" : "CLOSED"}.`);
         setWorldState((prev) => ({ ...prev, baseOneDoorOpen: nextState }));
       }
       // Base One Generator
@@ -365,79 +324,13 @@ export default function UnityCanvas({
         if (!curWorldState.baseOneGeneratorRepaired) {
           genMesh.material.color.setHex(0x10b981);
           baseOneIntLight.intensity = 2.5;
-          logAction("Base One Generator repaired! Interior lights & grid powered ON.");
+          logAction("Base One Generator repaired & powered ON.");
           setWorldState((prev) => ({ ...prev, baseOneGeneratorRepaired: true, baseOneGeneratorRunning: true }));
         } else {
           const nextRun = !curWorldState.baseOneGeneratorRunning;
           baseOneIntLight.intensity = nextRun ? 2.5 : 0;
           logAction(`Base One Generator toggled: ${nextRun ? "RUNNING" : "OFF"}.`);
           setWorldState((prev) => ({ ...prev, baseOneGeneratorRunning: nextRun }));
-        }
-      }
-      // Base One Water Pump
-      else if (Math.hypot(px - (-18), pz - (-9)) < 3.5) {
-        setWorldState((prev) => ({ ...prev, waterCount: prev.waterCount + 2 }));
-        setInventory((prev) => {
-          const exist = prev.find((i) => i.id === "item_purified_water");
-          if (exist) return prev.map((i) => (i.id === "item_purified_water" ? { ...i, count: i.count + 2 } : i));
-          return [...prev, { id: "item_purified_water", name: "Purified Water", count: 2 }];
-        });
-        logAction("Collected +2 Purified Water Rations from Base One Water Pump.");
-      }
-      // Radio Room
-      else if (Math.hypot(px - (-7), pz - (-16)) < 3.5) {
-        if (!journalRef.current.some((item) => item.id === "evidence_continuity_signal")) {
-          logAction("Radio Broadcast Received: 'CONTINUITY NODE 17 ACTIVE... SEEK COORDINATOR...'");
-          setJournal((j) => [
-            ...j,
-            {
-              id: "evidence_continuity_signal",
-              title: "Node 17 Emergency Transmission",
-              content: "CONTINUITY NODE 17 ACTIVE... SEEK COORDINATOR...",
-              location: "Base One Radio Room",
-            },
-          ]);
-        }
-      }
-      // Substation Check
-      else if (Math.hypot(px - 18, pz - 14) < 4.0) {
-        if (!curWorldState.substationPowerOnline) {
-          linkMesh.material.color.setHex(0x38bdf8);
-          subIntLight.color.setHex(0x38bdf8);
-          logAction("Substation Power Link RESTORED! Power connected to Pharmacy interior.");
-          setWorldState((prev) => ({ ...prev, substationPowerOnline: true }));
-        }
-      }
-      // Pharmacy Cache Check
-      else if (Math.hypot(px - 15.5, pz - (-13.5)) < 3.5) {
-        if (!curWorldState.substationPowerOnline) {
-          logAction("Pharmacy Storage Cache is LOCKED! Restore Substation Power Link first.");
-        } else if (!curWorldState.pharmacySearched) {
-          cacheMesh.material.color.setHex(0x64748b);
-          setInventory((inv) => {
-            const exist = inv.find((i) => i.id === "item_medkit");
-            if (exist) return inv.map((i) => (i.id === "item_medkit" ? { ...i, count: i.count + 2 } : i));
-            return [...inv, { id: "item_medkit", name: "Medical Kit", count: 2 }];
-          });
-          logAction("Searched Pharmacy Cache: Found 2x Medical Kits!");
-          setWorldState((prev) => ({ ...prev, pharmacySearched: true }));
-        }
-      }
-      // Evidence Note Check
-      else if (Math.hypot(px - 20.5, pz - (-13.5)) < 3.5) {
-        if (!curWorldState.evidenceCollected) {
-          noteMesh.visible = false;
-          setJournal((j) => [
-            ...j,
-            {
-              id: "evidence_pharmacist_note",
-              title: "Pharmacist's Emergency Note",
-              content: "The emergency network told us to stay inside... Node 17 took control of the grid...",
-              location: "Pharmacy Office Desk",
-            },
-          ]);
-          logAction("Discovered Evidence: 'Pharmacist's Emergency Note' logged to Journal (Tab).");
-          setWorldState((prev) => ({ ...prev, evidenceCollected: true }));
         }
       }
     };
@@ -482,7 +375,6 @@ export default function UnityCanvas({
       const px = playerGroup.position.x;
       const pz = playerGroup.position.z;
 
-      // Interior Roof Fade-Out & Location Sensing
       const isInsideBaseOne = px >= -21 && px <= -3 && pz >= -19 && pz <= -5;
       const isInsidePharmacy = px >= 13 && px <= 23 && pz >= -16 && pz <= -8;
       const isInsideSubstation = px >= 11 && px <= 25 && pz >= 9 && pz <= 19;
@@ -491,47 +383,29 @@ export default function UnityCanvas({
       pharmRoofMat.opacity = isInsidePharmacy ? 0.1 : 0.9;
       subRoofMat.opacity = isInsideSubstation ? 0.1 : 0.9;
 
-      if (isInsideBaseOne) setInsideLocation("BASE ONE INTERIOR (Mira active at Generator)");
-      else if (isInsidePharmacy) setInsideLocation("PHARMACY INTERIOR (Retail & Storage)");
-      else if (isInsideSubstation) setInsideLocation("SUBSTATION INTERIOR (Elias active at Control Box)");
+      if (isInsideBaseOne) setInsideLocation("BASE ONE INTERIOR");
+      else if (isInsidePharmacy) setInsideLocation("PHARMACY INTERIOR");
+      else if (isInsideSubstation) setInsideLocation("SUBSTATION INTERIOR");
       else setInsideLocation(null);
 
-      // Camera Follow
       const camY = isInsideBaseOne || isInsidePharmacy || isInsideSubstation ? 10 : 15;
       const camZ = isInsideBaseOne || isInsidePharmacy || isInsideSubstation ? 10 : 16;
       camera.position.set(px, playerGroup.position.y + camY, pz + camZ);
       camera.lookAt(px, playerGroup.position.y + 1, pz);
 
-      // Interaction Prompts
       const curWorldState = worldStateRef.current;
       let prompt: string | null = null;
 
-      if (Math.hypot(px - (-15), pz - (-14)) < 3.5) {
-        prompt = "[E] Talk to Mira (Base One Engineer)";
-      } else if (Math.hypot(px - 18, pz - 12) < 3.5) {
-        prompt = "[E] Talk to Elias (Substation Specialist)";
+      if (Math.hypot(px - (-15), pz - 14) < 4.5) {
+        prompt = curWorldState.greenhouseCompleted
+          ? "[E] Hydroponic Greenhouse (Operational)"
+          : `[E] Construct Hydroponic Greenhouse (${curWorldState.greenhouseProgress}% Complete - Add 25% Work)`;
       } else if (Math.hypot(px - (-14), pz - (-5)) < 3.5) {
         prompt = `[E] ${curWorldState.baseOneDoorOpen ? "Close" : "Open"} Base One Door`;
       } else if (Math.hypot(px - (-18), pz - (-16)) < 3.5) {
         prompt = curWorldState.baseOneGeneratorRepaired
           ? `[E] ${curWorldState.baseOneGeneratorRunning ? "Shut Down" : "Start"} Generator`
           : "[E] Repair Base One Generator (Requires 3x Scrap Metal)";
-      } else if (Math.hypot(px - (-18), pz - (-9)) < 3.5) {
-        prompt = "[E] Collect Purified Water Rations (+2)";
-      } else if (Math.hypot(px - (-7), pz - (-16)) < 3.5) {
-        prompt = "[E] Tune Emergency Radio (Node 17 Transmission)";
-      } else if (Math.hypot(px - 18, pz - 14) < 4.0) {
-        prompt = curWorldState.substationPowerOnline
-          ? "[E] Substation Grid Power ONLINE"
-          : "[E] Restore Substation Power Link to Pharmacy";
-      } else if (Math.hypot(px - 15.5, pz - (-13.5)) < 3.5) {
-        prompt = !curWorldState.substationPowerOnline
-          ? "[E] Storage Cache LOCKED (Requires Power Link)"
-          : curWorldState.pharmacySearched
-          ? "[E] Medicine Cache EMPTY"
-          : "[E] Search Medicine Cache (+2 Medkits)";
-      } else if (Math.hypot(px - 20.5, pz - (-13.5)) < 3.5 && !curWorldState.evidenceCollected) {
-        prompt = "[E] Inspect Pharmacist's Emergency Note";
       }
 
       setCurrentPrompt(prompt);
