@@ -17,23 +17,35 @@ export default function DashboardHUD() {
               Stage 1: Shelter
             </span>
           </h2>
-          <p className="text-xs text-slate-400 font-mono">District: City Block 01 • Cycle: Day 0</p>
+          <p className="text-xs text-slate-400 font-mono">District: City Block 01 • Day 0 Cycle</p>
         </div>
       </div>
 
-      {/* Strategic Resources Bar */}
-      <div className="flex flex-wrap items-center gap-6 font-mono text-xs">
+      {/* Strategic & Physical Resources HUD */}
+      <div className="flex flex-wrap items-center gap-5 font-mono text-xs">
         <div className="flex flex-col">
           <span className="text-slate-500 uppercase tracking-wider text-[10px]">Population</span>
           <span className="text-slate-200 font-bold">1 / 6 Bunks</span>
         </div>
         <div className="flex flex-col">
-          <span className="text-slate-500 uppercase tracking-wider text-[10px]">Power Link</span>
-          <span className="text-amber-400 font-bold">Substation Offline</span>
+          <span className="text-slate-500 uppercase tracking-wider text-[10px]">Food Rations</span>
+          <span className="text-emerald-400 font-bold">25 units</span>
         </div>
         <div className="flex flex-col">
           <span className="text-slate-500 uppercase tracking-wider text-[10px]">Water Supply</span>
-          <span className="text-sky-400 font-bold">Pump Ready</span>
+          <span className="text-sky-400 font-bold">30 units</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-slate-500 uppercase tracking-wider text-[10px]">Medical Cache</span>
+          <span className="text-rose-400 font-bold">10 units</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-slate-500 uppercase tracking-wider text-[10px]">Scrap Metal</span>
+          <span className="text-amber-400 font-bold">15 units</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-slate-500 uppercase tracking-wider text-[10px]">Trust Rating</span>
+          <span className="text-indigo-400 font-bold">50%</span>
         </div>
         <div className="flex flex-col">
           <span className="text-slate-500 uppercase tracking-wider text-[10px]">ORPHEUS Signal</span>
