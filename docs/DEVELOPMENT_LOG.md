@@ -82,4 +82,23 @@
 - **What Was Implemented:** Fully created the C# component baseline for Base One home base interior: generator repair workflow, water pump rationing, workbench item crafting, emergency radio Node 17 broadcast anchor, and `BaseOneManager` infrastructure state tracker.
 - **What Was Tested:** Next.js build compilation verified (`0 errors`); git commit and push completed.
 - **Result:** Phase 3 Base One infrastructure completed and pushed to `origin/main`.
-- **Next Step:** Phase 4 — Survivors (Multi-Tiered NPC Simulation, Needs, Professions, Schedules).
+- **Next Step:** Implement Phase 4 Survivor AI simulation, needs system, daily schedule loops, and distance simulation tiering.
+
+---
+
+## Entry 005 — 2026-09-24
+
+- **Phase:** Phase 4 — Survivors & Multi-Tiered NPC Simulation
+- **Task:** Survivor AI Systems (NPCNeeds, NPCSchedule, NPCDefinition, NPCController, NPCManager, 3D Survivor Models)
+- **Files Changed:**
+  - Created [`game/Unity/Assets/Scripts/AI/NPCNeeds.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/AI/NPCNeeds.cs) (Survivor needs: Health, Hunger, Thirst, Fatigue, Morale, Hope, Safety)
+  - Created [`game/Unity/Assets/Scripts/AI/NPCSchedule.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/AI/NPCSchedule.cs) (Daily schedule loop: Wake, Eat, Work, Rest, Sleep)
+  - Created [`game/Unity/Assets/Scripts/AI/NPCDefinition.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/AI/NPCDefinition.cs) (ScriptableObject survivor definition & professions)
+  - Created [`game/Unity/Assets/Scripts/AI/NPCController.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/AI/NPCController.cs) (Distance simulation tiers: Near, Medium, Far + dialogue interaction)
+  - Created [`game/Unity/Assets/Scripts/AI/NPCManager.cs`](file:///d:/Last%20city/game/Unity/Assets/Scripts/AI/NPCManager.cs) (Population registry & Far-tier statistical math update loop)
+  - Updated [`web/src/components/UnityCanvas.tsx`](file:///d:/Last%20city/web/src/components/UnityCanvas.tsx) (3D Survivor meshes for Mira and Elias with interactive dialogue prompts)
+- **Systems Changed:** Survivor AI Engine, Needs Dynamics, Daily Schedules, Multi-Tiered Simulation, 3D Web Engine.
+- **What Was Implemented:** Fully implemented the Phase 4 Survivor AI architecture: 7-variable needs simulation, 24-hour schedule loops, 3-tier distance fidelity optimization (Near/Medium/Far), and rendered 3D survivor characters (Mira and Elias) with interactive dialogue prompts in the WebGL scene.
+- **What Was Tested:** Next.js build compilation verified (`0 errors`); git commit and push completed (`3bcbc73`).
+- **Result:** Phase 4 Survivor AI systems completed and pushed to `origin/main`.
+- **Next Step:** Phase 5 — Strategic Resource Economy (Food, Water, Medicine, Scrap, Knowledge, Trust).
